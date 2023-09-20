@@ -6,9 +6,10 @@ plugins {
 group("com.hearthappy")
 version("1.0.0")
 
+
 task javadoc(type: Javadoc) {
     source = android.sourceSets.main.java.sourceFiles
-    classpath += project.files("src/main/java")
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {

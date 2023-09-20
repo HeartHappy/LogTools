@@ -48,4 +48,5 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.4.0")
 
     implementation("com.github.getActivity:XXPermissions:18.3")
+//    implementation("com.github.HeartHappy:LogTools:master-SNAPSHOT")
 }

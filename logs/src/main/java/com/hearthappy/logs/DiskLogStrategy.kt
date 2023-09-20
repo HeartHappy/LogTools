@@ -3,7 +3,6 @@ package com.hearthappy.logs
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
-import android.util.Log
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException

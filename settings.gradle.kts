@@ -15,6 +15,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "LogTool"
+rootProject.name = "LogTools"
 include(":app")
 include(":logs")

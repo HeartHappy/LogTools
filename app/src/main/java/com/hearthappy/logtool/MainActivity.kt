@@ -21,8 +21,7 @@ class MainActivity : AppCompatActivity() {
     private fun MainActivity.requestPermissions() {
         PermissionManager.with(this).permission(object : OnPermissionCallback {
             override fun onGranted(permissions: MutableList<String>, allGranted: Boolean) {
-                if (allGranted) {
-//                    outLog()
+                if (allGranted) { //                    outLog()
                 }
             }
 
@@ -38,7 +37,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun outLog() {
-
         LogTools.common.t(TAG).d("outLog : onCreate")
         LogTools.common.t(TAG).i("outLog : onCreate")
         LogTools.common.t(TAG).w("outLog : onCreate")
@@ -62,9 +60,11 @@ class MainActivity : AppCompatActivity() {
     fun outLogAndFile(view: View) {
         outLog()
     }
+
     fun deleteLogFile(view: View) {
         LogTools.common.clear("Common")
     }
+
     fun deleteAllLogFile(view: View) {
         val clearAll = LogTools.kernel.clearAll()
         val d = Log.d(TAG, "deleteAllLogFile: $clearAll")

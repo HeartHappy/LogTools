@@ -19,7 +19,7 @@ import javax.xml.transform.TransformerFactory
 import javax.xml.transform.stream.StreamResult
 import javax.xml.transform.stream.StreamSource
 
-internal class LogImpl(private var scope: String, private val interceptor: LogInterceptor) : ILog {
+internal class LogImpl(private var scope: String , private val interceptor: LogInterceptor) : ILog {
     private val localTag = ThreadLocal<String>()
     private var tag: String = "LogTools"
 

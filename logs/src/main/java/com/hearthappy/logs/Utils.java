@@ -8,8 +8,8 @@ import static com.hearthappy.logs.Log.INFO;
 import static com.hearthappy.logs.Log.VERBOSE;
 import static com.hearthappy.logs.Log.WARN;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+
+import org.jetbrains.annotations.Nullable;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -149,7 +149,7 @@ final class Utils {
     return "Couldn't find a correct type for the object";
   }
 
-  @NonNull static <T> T checkNotNull(@Nullable final T obj) {
+  static <T> T checkNotNull(@Nullable final T obj) {
     if (obj == null) {
       throw new NullPointerException();
     }

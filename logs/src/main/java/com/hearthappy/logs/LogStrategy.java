@@ -1,12 +1,10 @@
 package com.hearthappy.logs;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 /**
  * Determines destination target for the logs such as Disk, Logcat etc.
  *
- * @see LogcatLogStrategy
+ * @see LogStrategy
  * @see DiskLogStrategy
  */
 public interface LogStrategy {
@@ -19,5 +17,5 @@ public interface LogStrategy {
    * @param tag is the given tag for the log message.
    * @param message is the given message for the log message.
    */
-  void log(int priority, @Nullable String tag, @NonNull String message);
+  void log(int priority,String tag,String message);
 }

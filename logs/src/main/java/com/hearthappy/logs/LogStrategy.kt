@@ -16,5 +16,5 @@ interface LogStrategy {
      * @param tag is the given tag for the log message.
      * @param message is the given message for the log message.
      */
-    fun log(priority: Int, tag: String?, message: String?)
+    fun log(priority: Int, tag: String?, message: String)
 }

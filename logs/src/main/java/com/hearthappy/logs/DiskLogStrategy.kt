@@ -22,8 +22,7 @@ class DiskLogStrategy(handler: Handler) : LogStrategy {
     }
 
     override fun log(level: Int, tag: String?, message: String) {
-        Utils.checkNotNull(message)
-        // do nothing on the calling thread, simply pass the tag/msg to the background thread
+        Utils.checkNotNull(message) // do nothing on the calling thread, simply pass the tag/msg to the background thread
         handler.sendMessage(handler.obtainMessage(level, message))
     }
 
@@ -65,19 +64,17 @@ class DiskLogStrategy(handler: Handler) : LogStrategy {
             }
 
 
-
             var newFileCount = 0
             val file = File(folder, String.format("%s_%s.csv", fileName, newFileCount))
-            if(!file.exists()){
+            if (!file.exists()) {
                 file.createNewFile()
-            }else{
-                if(file.length()>=maxFileSize){
+            } else {
+                if (file.length() >= maxFileSize) {
                     newFileCount++
                     return File(folder, String.format("%s_%s.csv", fileName, newFileCount))
                 }
             }
-            return file
-            /*newFile = File(folder, String.format("%s_%s.csv", fileName, newFileCount))
+            return file/*newFile = File(folder, String.format("%s_%s.csv", fileName, newFileCount))
             while (newFile.exists()) {
                 existingFile = newFile
                 newFileCount++
@@ -88,4 +85,5 @@ class DiskLogStrategy(handler: Handler) : LogStrategy {
             } ?: newFile*/
         }
     }
+
 }

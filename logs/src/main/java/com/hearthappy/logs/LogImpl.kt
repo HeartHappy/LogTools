@@ -115,15 +115,15 @@ internal class LogImpl(private var scope: String , private val interceptor: LogI
         }
         val tag: String = formatTag(onceOnlyTag)
 
-        date.time = System.currentTimeMillis()
+//        date.time = System.currentTimeMillis()
 
         val builder = StringBuilder()
 
         if (interceptor.isWriteFile()) {
 
             // machine-readable date/time
-            builder.append(date.time.toString())
-            builder.append(SEPARATOR)
+//            builder.append(date.time.toString())
+//            builder.append(SEPARATOR)
 
             // human-readable date/time
             builder.append(dateFormat.format(date))
@@ -154,7 +154,9 @@ internal class LogImpl(private var scope: String , private val interceptor: LogI
                 logStrategy = DiskLogStrategy(handler)
             }
             logStrategy.log(priority, tag, builder.toString())
-        } else {
+        }
+
+        if(interceptor.isDebug()==BuildTypes.DEBUG){
             android.util.Log.d(tag, builder.toString())
         }
     }

@@ -34,11 +34,11 @@ class Log(private var scope: String = "default") {
     }
 
     fun d(message: String, vararg args: Any?) {
-        if (interceptor.isDebug()) logImpl.d(message, args)
+        logImpl.d(message, args)
     }
 
     fun d(`object`: Any?) {
-        if (interceptor.isDebug()) logImpl.d(`object`)
+        logImpl.d(`object`)
     }
 
     fun e(message: String, vararg args: Any?) {

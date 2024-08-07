@@ -6,7 +6,7 @@ interface LogInterceptor {
      * 日志拦截器 true:拦截debug日志，不在打印Debug日志
      * @return String
      */
-    fun isDebug(): Boolean
+    fun isDebug(): BuildTypes
 
 
     /**
@@ -14,4 +14,9 @@ interface LogInterceptor {
      * @return Boolean
      */
     fun isWriteFile():Boolean
+}
+
+sealed class BuildTypes{
+    object DEBUG:BuildTypes()
+    object RELEASE:BuildTypes()
 }

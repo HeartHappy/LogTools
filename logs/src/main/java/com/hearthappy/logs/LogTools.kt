@@ -9,7 +9,7 @@ open class LogTools {
         val common by lazy {
             Log("Common").apply {
                 this.interceptor = object : LogInterceptorAdapter() {
-                    override fun isDebug(): Boolean = DEBUG
+                    override fun isDebug(): BuildTypes =BuildTypes.DEBUG
                 }
             }
         }
@@ -18,7 +18,7 @@ open class LogTools {
         val important by lazy {
             Log("Important").apply {
                 this.interceptor = object : LogInterceptorAdapter() {
-                    override fun isWriteFile(): Boolean = false
+                    override fun isWriteFile(): Boolean = true
                 }
             }
         }

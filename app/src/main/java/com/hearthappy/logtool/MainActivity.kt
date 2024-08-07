@@ -37,19 +37,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun outLog() {
-        LogTools.common.t(TAG).d("outLog : onCreate")
-        LogTools.common.t(TAG).i("outLog : onCreate")
-        LogTools.common.t(TAG).w("outLog : onCreate")
+        LogTools.common.t(TAG).d("outLog : common test")
+        LogTools.common.t(TAG).d("outLog : common onCreate d")
+        LogTools.common.t(TAG).i("outLog : common onCreate i")
+        LogTools.common.t(TAG).w("outLog : common onCreate w")
 
 
 
-        LogTools.important.t(TAG).d("outLog : onCreate")
+        LogTools.important.t(TAG).d("outLog : important onCreate d")
 
-        LogTools.kernel.t(TAG).d("outLog : onCreate")
-        LogTools.kernel.t(TAG).d("outLog : onResume")
-        LogTools.kernel.t(TAG).i("outLog : onCreate1")
-        LogTools.kernel.t(TAG).i("outLog : onCreate2")
-        LogTools.kernel.t(TAG).d("outLog : onCreate3")
+        LogTools.kernel.t(TAG).d("outLog :kernel onCreate d")
+        LogTools.kernel.t(TAG).d("outLog :kernel onResume d")
+        LogTools.kernel.t(TAG).i("outLog :kernel onCreate1 i")
+        LogTools.kernel.t(TAG).i("outLog :kernel onCreate2 i")
+        LogTools.kernel.t(TAG).d("outLog :kernel onCreate3 d")
     }
 
     companion object {

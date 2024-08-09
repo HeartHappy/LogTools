@@ -2,7 +2,7 @@
 
 ```apl
 dependencies {
-    implementation("com.github.HeartHappy:LogTools:master-SNAPSHOT")
+    implementation("com.github.HeartHappy:LogTools:1.0.1")
 }
 ```
 
@@ -29,9 +29,9 @@ LogTools.kernel.t(TAG).d("outLog : onCreate")
 //公共
  val common by lazy {
    Log("Common").apply {
-     //定义拦截器，返回ture：写入debug日志，false：拦截debug日志
+     //定义拦截器，返回BuildTypes.DEBUG：输出log日志
      this.interceptor = object : LogInterceptorAdapter() {
-       override fun isDebug(): Boolean = true
+       override fun isDebug(): BuildTypes =BuildTypes.DEBUG
      }
    }
 }
@@ -39,9 +39,9 @@ LogTools.kernel.t(TAG).d("outLog : onCreate")
 //重要
 val important by lazy {
   Log("Important").apply {
-    //定义拦截器，true：写入日志文件，false，该日志不写文件，但是打印Log日志
+    //定义拦截器，true：写入日志文件，false：该日志不写文件
     this.interceptor = object : LogInterceptorAdapter() {
-      override fun isWriteFile(): Boolean = false
+      override fun isWriteFile(): Boolean = true
     }
   }
 }

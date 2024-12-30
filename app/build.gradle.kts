@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.hearthappy.logtool"
-    compileSdk = 33
+    compileSdk = 31
 
     defaultConfig {
         applicationId = "com.hearthappy.logtool"

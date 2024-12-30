@@ -51,7 +51,7 @@ afterEvaluate {
 
 android {
     namespace 'com.hearthappy.logs'
-    compileSdk 33
+    compileSdk 31
 
     defaultConfig {
         minSdk 21

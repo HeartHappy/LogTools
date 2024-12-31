@@ -14,11 +14,7 @@ import java.io.IOException
  * Writes all logs to the disk with CSV format.
  */
 class DiskLogStrategy(handler: Handler) : LogStrategy {
-    private val handler: Handler
-
-    init {
-        this.handler = Utils.checkNotNull(handler)
-    }
+    private val handler: Handler = Utils.checkNotNull(handler)
 
     override fun log(level: Int, tag: String?, message: String) {
         Utils.checkNotNull(message) // do nothing on the calling thread, simply pass the tag/msg to the background thread
@@ -26,11 +22,7 @@ class DiskLogStrategy(handler: Handler) : LogStrategy {
     }
 
     internal class WriteHandler(looper: Looper, folder: String, private val maxFileSize: Int, private val scope: String) : Handler(Utils.checkNotNull(looper)) {
-        private val folder: String
-
-        init {
-            this.folder = Utils.checkNotNull(folder)
-        }
+        private val folder: String = Utils.checkNotNull(folder)
 
         override fun handleMessage(msg: Message) {
             val content = msg.obj as String

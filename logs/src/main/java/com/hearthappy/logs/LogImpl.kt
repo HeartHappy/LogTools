@@ -1,8 +1,12 @@
 package com.hearthappy.logs
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
+import androidx.core.content.ContextCompat
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -19,7 +23,7 @@ import javax.xml.transform.TransformerFactory
 import javax.xml.transform.stream.StreamResult
 import javax.xml.transform.stream.StreamSource
 
-internal class LogImpl(private var scope: String , private val interceptor: LogInterceptor) : ILog {
+internal class LogImpl(private var scope: String, private val interceptor: LogInterceptor,private val context: Context?) : ILog {
     private val localTag = ThreadLocal<String>()
     private var tag: String = "LogTools"
 
@@ -115,15 +119,15 @@ internal class LogImpl(private var scope: String , private val interceptor: LogI
         }
         val tag: String = formatTag(onceOnlyTag)
 
-//        date.time = System.currentTimeMillis()
+        //        date.time = System.currentTimeMillis()
 
         val builder = StringBuilder()
 
         if (interceptor.isWriteFile()) {
 
             // machine-readable date/time
-//            builder.append(date.time.toString())
-//            builder.append(SEPARATOR)
+            //            builder.append(date.time.toString())
+            //            builder.append(SEPARATOR)
 
             // human-readable date/time
             builder.append(dateFormat.format(date))
@@ -145,18 +149,25 @@ internal class LogImpl(private var scope: String , private val interceptor: LogI
         builder.append(NEW_LINE)
 
         if (interceptor.isWriteFile()) { //创建磁盘对象
-            if (!::logStrategy.isInitialized) {
-                val diskPath = Environment.getExternalStorageDirectory().absolutePath
-                val folder = diskPath + File.separatorChar + "logger"
-                val ht = HandlerThread("AndroidFileLogger.$folder")
-                ht.start()
-                val handler: Handler = DiskLogStrategy.WriteHandler(ht.looper, folder, MAX_BYTES, scope)
-                logStrategy = DiskLogStrategy(handler)
-            }
-            logStrategy.log(priority, tag, builder.toString())
+            context?.apply {
+                if(ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED){
+                    if (!::logStrategy.isInitialized) {
+                        val diskPath = Environment.getExternalStorageDirectory().absolutePath
+                        val folder = diskPath + File.separatorChar + "logger"
+                        val ht = HandlerThread("AndroidFileLogger.$folder")
+                        ht.start()
+                        val handler: Handler = DiskLogStrategy.WriteHandler(ht.looper, folder, MAX_BYTES, scope)
+                        logStrategy = DiskLogStrategy(handler)
+                    }
+                    logStrategy.log(priority, tag, builder.toString())
+                }else{
+                    android.util.Log.e(this@LogImpl.tag, "No file write permission")
+                }
+            }?: android.util.Log.e(this.tag, "The logging framework does not obtain the application context")
+
         }
 
-        if(interceptor.isDebug()==BuildTypes.DEBUG){
+        if (interceptor.isDebug() == BuildTypes.DEBUG) {
             android.util.Log.d(tag, builder.toString())
         }
     }

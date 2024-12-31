@@ -1,5 +1,7 @@
 package com.hearthappy.logs
 
+import android.content.Context
+
 
 /**
  * @Author ChenRui
@@ -7,11 +9,11 @@ package com.hearthappy.logs
  * @Date 9/20/23
  * @Describe 日志类，对外开放调用
  */
-class Log(private var scope: String = "default") {
+class Log(private var scope: String = "default",private var context: Context?=null) {
 
     var interceptor: LogInterceptor = LogInterceptorAdapter()
 
-    private val logImpl: ILog by lazy { LogImpl(scope, interceptor) }
+    private val logImpl: ILog by lazy { LogImpl(scope, interceptor,context) }
 
     companion object {
 

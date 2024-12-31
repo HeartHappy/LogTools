@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.hearthappy.logs.LogTools
 import com.hjq.permissions.OnPermissionCallback
+import com.hjq.permissions.Permission
 import com.hjq.permissions.XXPermissions
 
 class MainActivity : AppCompatActivity() {
@@ -19,21 +20,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun MainActivity.requestPermissions() {
-        PermissionManager.with(this).permission(object : OnPermissionCallback {
-            override fun onGranted(permissions: MutableList<String>, allGranted: Boolean) {
-                if (allGranted) { //                    outLog()
-                }
+        XXPermissions.with(this@MainActivity).permission(Permission.WRITE_EXTERNAL_STORAGE).request(object :OnPermissionCallback{
+            override fun onGranted(permissions: MutableList<String>?, all: Boolean) {
+                outLog()
             }
-
-            override fun onDenied(permissions: MutableList<String>, doNotAskAgain: Boolean) {
-                if (doNotAskAgain) { // 如果是被永久拒绝就跳转到应用权限系统设置页面
-                    XXPermissions.startPermissionActivity(this@MainActivity, permissions)
-                } else {
-                    Toast.makeText(this@MainActivity, "权限被拒绝！", Toast.LENGTH_SHORT).show()
-                    finish()
-                }
-            }
-        }, PermissionManager.STORAGE)
+        })
+//        PermissionManager.with(this).permission(object : OnPermissionCallback {
+//            override fun onGranted(permissions: MutableList<String>, allGranted: Boolean) {
+//                if (allGranted) { //                    outLog()
+//                }
+//            }
+//
+//            override fun onDenied(permissions: MutableList<String>, doNotAskAgain: Boolean) {
+//                if (doNotAskAgain) { // 如果是被永久拒绝就跳转到应用权限系统设置页面
+//                    XXPermissions.startPermissionActivity(this@MainActivity, permissions)
+//                } else {
+//                    Toast.makeText(this@MainActivity, "权限被拒绝！", Toast.LENGTH_SHORT).show()
+//                    finish()
+//                }
+//            }
+//        }, PermissionManager.STORAGE)
     }
 
     private fun outLog() {

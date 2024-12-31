@@ -16,9 +16,9 @@ import java.io.IOException
 class DiskLogStrategy(handler: Handler) : LogStrategy {
     private val handler: Handler = Utils.checkNotNull(handler)
 
-    override fun log(level: Int, tag: String?, message: String) {
+    override fun log(priority: Int, tag: String?, message: String) {
         Utils.checkNotNull(message) // do nothing on the calling thread, simply pass the tag/msg to the background thread
-        handler.sendMessage(handler.obtainMessage(level, message))
+        handler.sendMessage(handler.obtainMessage(priority, message))
     }
 
     internal class WriteHandler(looper: Looper, folder: String, private val maxFileSize: Int, private val scope: String) : Handler(Utils.checkNotNull(looper)) {

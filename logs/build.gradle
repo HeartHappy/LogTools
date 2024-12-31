@@ -4,7 +4,7 @@ plugins {
     id 'maven-publish'
 }
 group("com.hearthappy")
-version("1.0.0")
+version("1.0.5")
 
 
 task javadoc(type: Javadoc) {
@@ -30,7 +30,7 @@ afterEvaluate {
                 from components.release
                 groupId = 'com.hearthappy.logtools'
                 artifactId = 'logtools'
-                version = '1.0.0'
+                version = '1.0.5'
                 artifacts {
                     archives(javadocJar)
                     archives(sourceJar)
@@ -72,6 +72,17 @@ android {
     }
     kotlinOptions {
         jvmTarget = '1.8'
+    }
+    // 处理 jar 任务中的重复文件
+    tasks.withType(Jar).configureEach {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+
+    // 处理资源处理任务中的重复文件
+    tasks.withType(ProcessResources).tap {
+        configureEach {
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        }
     }
 }
 

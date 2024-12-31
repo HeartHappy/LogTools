@@ -3,7 +3,6 @@ package com.hearthappy.logs
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.net.UnknownHostException
-import java.util.Arrays
 
 /**
  * Provides convenient methods to some common operations
@@ -16,7 +15,7 @@ internal object Utils {
      * @return true if str is null or zero length
      */
     fun isEmpty(str: CharSequence?): Boolean {
-        return str == null || str.length == 0
+        return str.isNullOrEmpty()
     }
 
     /**
@@ -81,12 +80,12 @@ internal object Utils {
     fun logLevel(value: Int): String {
         return when (value) {
             Log.VERBOSE -> "VERBOSE"
-            Log.DEBUG   -> "DEBUG"
-            Log.INFO    -> "INFO"
-            Log.WARN    -> "WARN"
-            Log.ERROR   -> "ERROR"
-            Log.ASSERT  -> "ASSERT"
-            else        -> "UNKNOWN"
+            Log.DEBUG -> "DEBUG"
+            Log.INFO -> "INFO"
+            Log.WARN -> "WARN"
+            Log.ERROR -> "ERROR"
+            Log.ASSERT -> "ASSERT"
+            else -> "UNKNOWN"
         }
     }
 
@@ -98,31 +97,31 @@ internal object Utils {
             return `object`.toString()
         }
         if (`object` is BooleanArray) {
-            return Arrays.toString(`object` as BooleanArray?)
+            return (`object` as BooleanArray?).contentToString()
         }
         if (`object` is ByteArray) {
-            return Arrays.toString(`object` as ByteArray?)
+            return (`object` as ByteArray?).contentToString()
         }
         if (`object` is CharArray) {
-            return Arrays.toString(`object` as CharArray?)
+            return (`object` as CharArray?).contentToString()
         }
         if (`object` is ShortArray) {
-            return Arrays.toString(`object` as ShortArray?)
+            return (`object` as ShortArray?).contentToString()
         }
         if (`object` is IntArray) {
-            return Arrays.toString(`object` as IntArray?)
+            return (`object` as IntArray?).contentToString()
         }
         if (`object` is LongArray) {
-            return Arrays.toString(`object` as LongArray?)
+            return (`object` as LongArray?).contentToString()
         }
         if (`object` is FloatArray) {
-            return Arrays.toString(`object` as FloatArray?)
+            return (`object` as FloatArray?).contentToString()
         }
         if (`object` is DoubleArray) {
-            return Arrays.toString(`object` as DoubleArray?)
+            return (`object` as DoubleArray?).contentToString()
         }
-        return if (`object` is Array<*> && `object`.isArrayOf<Any>()) {
-            Arrays.deepToString(`object` as Array<Any?>?)
+        return if (`object` is Array<*>) {
+            `object`.contentDeepToString()
         } else "Couldn't find a correct type for the object"
     }
 

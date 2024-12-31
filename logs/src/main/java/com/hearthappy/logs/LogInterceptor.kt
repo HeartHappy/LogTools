@@ -17,6 +17,6 @@ interface LogInterceptor {
 }
 
 sealed class BuildTypes{
-    object DEBUG:BuildTypes()
-    object RELEASE:BuildTypes()
+    data object DEBUG:BuildTypes()
+    data object RELEASE:BuildTypes()
 }

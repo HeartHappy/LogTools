@@ -225,7 +225,7 @@ internal class LogImpl(private var scope: String, private val interceptor: LogIn
     companion object {
         private const val SEPARATOR = ","
         private const val JSON_INDENT = 2
-        private val NEW_LINE = System.getProperty("line.separator")
+        private val NEW_LINE = System.lineSeparator()
         private const val NEW_LINE_REPLACEMENT = " <br> "
 
         const val MAX_BYTES = 500 * 1024 // 500K averages to a 4000 lines per file

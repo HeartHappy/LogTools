@@ -1,5 +1,7 @@
 package com.hearthappy.logtool
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -8,6 +10,7 @@ import com.hearthappy.logs.LogTools
 import com.hjq.permissions.OnPermissionCallback
 import com.hjq.permissions.Permission
 import com.hjq.permissions.XXPermissions
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,5 +77,14 @@ class MainActivity : AppCompatActivity() {
     fun deleteAllLogFile(view: View) {
         val clearAll = LogTools.kernel.clearAll()
         val d = Log.d(TAG, "deleteAllLogFile: $clearAll")
+    }
+
+    fun openFile(view: View){
+        val file = LogTools.getListFile("Kernel")?.last()?.absolutePath?.let { File(it) }
+        Log.d(TAG, "openFile: ${file?.absolutePath}")
+        val intent = Intent(Intent.ACTION_VIEW)
+        val uri: Uri = Uri.fromParts("file", file?.absolutePath, null)
+        intent.setDataAndType(uri, "text/csv")
+        startActivity(intent)
     }
 }

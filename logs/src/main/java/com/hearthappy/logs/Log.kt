@@ -9,11 +9,11 @@ import android.content.Context
  * @Date 9/20/23
  * @Describe 日志类，对外开放调用
  */
-class Log(private var scope: String = "default",private var context: Context?=null) {
+class Log(private var scope: String = "default", private var context: Context? = null,private val diskPath: String?) {
 
     var interceptor: LogInterceptor = LogInterceptorAdapter()
 
-    private val logImpl: ILog by lazy { LogImpl(scope, interceptor,context) }
+    private val logImpl: ILog by lazy { LogImpl(scope, interceptor,context,diskPath) }
 
     companion object {
 

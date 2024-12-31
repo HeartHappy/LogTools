@@ -26,7 +26,7 @@ class DiskLogStrategy(handler: Handler) : LogStrategy {
 
         override fun handleMessage(msg: Message) {
             val content = msg.obj as String
-            val logFile = getLogFile(folder, scope.plus("_log.csv"))
+            val logFile = getLogFile(folder, scope.plus("_log"))
             FileWriter(logFile, true).use {
                 writeLog(it, content)
                 it.flush()

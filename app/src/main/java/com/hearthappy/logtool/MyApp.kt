@@ -8,6 +8,6 @@ class MyApp:Application (){
     override fun onCreate() {
         super.onCreate()
         //日志框架初始化
-        LogTools.install(applicationContext)
+        LogTools.install(applicationContext,"/sdcard/test")
     }
 }

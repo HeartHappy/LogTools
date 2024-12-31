@@ -23,7 +23,7 @@ import javax.xml.transform.TransformerFactory
 import javax.xml.transform.stream.StreamResult
 import javax.xml.transform.stream.StreamSource
 
-internal class LogImpl(private var scope: String, private val interceptor: LogInterceptor,private val context: Context?) : ILog {
+internal class LogImpl(private var scope: String, private val interceptor: LogInterceptor, private val context: Context?,private val diskPath: String?) : ILog {
     private val localTag = ThreadLocal<String>()
     private var tag: String = "LogTools"
 
@@ -152,7 +152,7 @@ internal class LogImpl(private var scope: String, private val interceptor: LogIn
             context?.apply {
                 if(ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED){
                     if (!::logStrategy.isInitialized) {
-                        val diskPath = Environment.getExternalStorageDirectory().absolutePath
+                        val diskPath = this@LogImpl.diskPath?:Environment.getExternalStorageDirectory().absolutePath
                         val folder = diskPath + File.separatorChar + "logger"
                         val ht = HandlerThread("AndroidFileLogger.$folder")
                         ht.start()

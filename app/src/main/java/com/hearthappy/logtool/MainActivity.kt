@@ -3,7 +3,6 @@ package com.hearthappy.logtool
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.hearthappy.logs.LogTools
 import com.hjq.permissions.OnPermissionCallback

@@ -2,12 +2,23 @@
 
 ```apl
 dependencies {
-    implementation("com.github.HeartHappy:LogTools:1.0.1")
+    implementation("com.github.HeartHappy:LogTools:1.0.3")
 }
 ```
 
 #### 二、使用教程
+##### 1、日志初始化
+```
+class MyApp:Application (){
 
+    override fun onCreate() {
+        super.onCreate()
+        //日志框架初始化
+        LogTools.install(applicationContext)
+    }
+}
+```
+##### 2、使用
 ```kotlin
 //公共日志
 LogTools.common.t(TAG).d("outLog : onCreate")

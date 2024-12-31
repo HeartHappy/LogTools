@@ -38,14 +38,14 @@ open class LogTools {
             logTools.diskPath = diskPath
         }
 
-        fun getListFile(scope: String): Array<out File>? {
+        fun getListFile(scope: String): List<File>? {
             val diskPath = logTools.diskPath ?: Environment.getExternalStorageDirectory().absolutePath
             val folder = diskPath.plus(File.separator).plus("logger/")
             val targetDir = File(folder)
             val files = targetDir.listFiles { file ->
                 file.isFile && file.name.startsWith(scope.plus("_log_"))
             }
-            return files
+            return files?.toList()
         }
 
 

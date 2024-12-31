@@ -1,5 +1,6 @@
 [versions]
 agp = "7.2.2"
+espressoCoreVersion = "3.4.0"
 kotlin = "2.0.10"
 jetbrainsKotlinJvm = "2.0.10"
 kotlinReflectVersion = "1.6.0"
@@ -29,6 +30,7 @@ xxpermissions = "13.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-espresso-core-v340 = { module = "androidx.test.espresso:espresso-core", version.ref = "espressoCoreVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

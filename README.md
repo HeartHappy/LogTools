@@ -1,3 +1,4 @@
+[![](https://jitpack.io/v/HeartHappy/LogTools.svg)](https://jitpack.io/#HeartHappy/LogTools)
 #### 一、集成
 
 ```apl

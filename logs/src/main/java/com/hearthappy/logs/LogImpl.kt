@@ -1,12 +1,9 @@
 package com.hearthappy.logs
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
-import androidx.core.content.ContextCompat
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -150,7 +147,7 @@ internal class LogImpl(private var scope: String, private val interceptor: LogIn
 
         if (interceptor.isWriteFile()) { //创建磁盘对象
             context?.apply {
-                if(ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED){
+//                if(ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED){
                     if (!::logStrategy.isInitialized) {
                         val diskPath = this@LogImpl.diskPath?:Environment.getExternalStorageDirectory().absolutePath
                         val folder = diskPath + File.separatorChar + "logger"
@@ -160,9 +157,9 @@ internal class LogImpl(private var scope: String, private val interceptor: LogIn
                         logStrategy = DiskLogStrategy(handler)
                     }
                     logStrategy.log(priority, tag, builder.toString())
-                }else{
-                    android.util.Log.e(this@LogImpl.tag, "No file write permission")
-                }
+//                }else{
+//                    android.util.Log.e(this@LogImpl.tag, "No file write permission")
+//                }
             }?: android.util.Log.e(this.tag, "The logging framework does not obtain the application context")
 
         }

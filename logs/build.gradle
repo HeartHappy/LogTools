@@ -4,7 +4,7 @@ plugins {
     id 'maven-publish'
 }
 group("com.hearthappy")
-version("1.0.5")
+version("1.0.6")
 
 
 task javadoc(type: Javadoc) {
@@ -28,26 +28,20 @@ afterEvaluate {
         publications {
             release(MavenPublication) {
                 from components.release
-                groupId = 'com.hearthappy.logtools'
+                groupId = 'com.github.hearthappy'
                 artifactId = 'logtools'
-                version = '1.0.5'
+                version = '1.0.6'
                 artifacts {
                     archives(javadocJar)
                     archives(sourceJar)
                 }
             }
-            //添加如下代码，还会生成一个debug版的库
-            /*debug(MavenPublication){
-                from components.debug
-
-                groupId = 'com.hearthappy.ktorexpand'
-                artifactId = 'ktor-expand-debug'
-                version = '1.0.0'
-            }*/
         }
         repositories {
             maven {
                 url = uri("${buildDir}/repo") // 本地仓库路径
+                //https://jitpack.io/com/github/HeartHappy/LogTools
+//                url=uri("https://jitpack.io/")
             }
         }
     }

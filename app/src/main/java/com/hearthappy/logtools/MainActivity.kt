@@ -1,4 +1,4 @@
-package com.hearthappy.logtool
+package com.hearthappy.logtools
 
 import android.content.Intent
 import android.net.Uri

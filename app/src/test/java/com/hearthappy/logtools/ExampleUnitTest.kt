@@ -1,4 +1,4 @@
-package com.hearthappy.logtool
+package com.hearthappy.logtools
 
 import org.junit.Test
 

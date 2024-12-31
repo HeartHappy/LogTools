@@ -1,4 +1,4 @@
-package com.hearthappy.logtool
+package com.hearthappy.logtools
 
 import android.app.Application
 import com.hearthappy.logs.LogTools

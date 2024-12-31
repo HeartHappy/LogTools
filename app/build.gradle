@@ -8,7 +8,7 @@ plugins {
 
 android {
 
-    namespace 'com.hearthappy.logtool'
+    namespace 'com.hearthappy.logtools'
     compileSdk 31
 
     defaultConfig {

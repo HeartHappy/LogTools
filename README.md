@@ -2,7 +2,7 @@
 
 ```apl
 dependencies {
-    implementation("com.github.HeartHappy:LogTools:1.0.4")
+    implementation("com.github.HeartHappy:LogTools:1.0.5")
 }
 ```
 
@@ -15,8 +15,8 @@ class MyApp:Application (){
 
     override fun onCreate() {
         super.onCreate()
-        //日志框架初始化
-        LogTools.install(applicationContext)
+        //日志框架初始化, 参数2可选参数，指定文件存储目录
+        LogTools.install(applicationContext//,file.path)
     }
 }
 ```

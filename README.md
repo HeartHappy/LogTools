@@ -3,7 +3,7 @@
 
 ```apl
 dependencies {
-    implementation("com.github.HeartHappy:LogTools:1.0.5")
+    implementation("com.github.HeartHappy:LogTools:1.0.8")
 }
 ```
 

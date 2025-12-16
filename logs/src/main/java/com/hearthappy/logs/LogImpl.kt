@@ -167,7 +167,7 @@ internal class LogImpl(private var scope: String, private val interceptor: LogIn
 
         }
 
-        if (interceptor.isDebug() == BuildTypes.DEBUG) {
+        if (interceptor.isDebug()) {
             android.util.Log.d(tag, builder.toString())
         }
     }

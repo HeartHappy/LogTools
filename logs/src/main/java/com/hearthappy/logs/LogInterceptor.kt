@@ -1,12 +1,18 @@
 package com.hearthappy.logs
 
+/**
+ * @Author ChenRui
+ * @Email 1096885636@qq.com
+ * @Date 9/20/23
+ * @Describe：日志拦截器
+ */
 interface LogInterceptor {
 
     /**
      * 日志拦截器 true:拦截debug日志，不在打印Debug日志
      * @return String
      */
-    fun isDebug(): BuildTypes
+    fun isDebug(): Boolean
 
 
     /**
@@ -14,9 +20,4 @@ interface LogInterceptor {
      * @return Boolean
      */
     fun isWriteFile():Boolean
-}
-
-sealed class BuildTypes{
-    data object DEBUG:BuildTypes()
-    data object RELEASE:BuildTypes()
 }

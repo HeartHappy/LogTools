@@ -15,7 +15,7 @@ open class LogTools {
         val common by lazy {
             Log("Common", logTools.context, logTools.diskPath).apply {
                 this.interceptor = object : LogInterceptorAdapter() {
-                    override fun isDebug(): BuildTypes = BuildTypes.DEBUG
+                    override fun isDebug(): Boolean = BuildConfig.DEBUG
                 }
             }
         }
@@ -24,7 +24,7 @@ open class LogTools {
         val important by lazy {
             Log("Important", logTools.context, logTools.diskPath).apply {
                 this.interceptor = object : LogInterceptorAdapter() {
-                    override fun isWriteFile(): Boolean = true
+                    override fun isWriteFile(): Boolean = !BuildConfig.DEBUG
                 }
             }
         }
@@ -46,6 +46,16 @@ open class LogTools {
                 file.isFile && file.name.startsWith(scope.plus("_log_"))
             }
             return files?.toList()
+        }
+
+        fun getDirectory(): String? {
+            val diskPath = logTools.diskPath ?: Environment.getExternalStorageDirectory().absolutePath
+            val folder = diskPath.plus(File.separator).plus("logger/")
+            val targetDir = File(folder)
+            if (!targetDir.exists()) {
+                targetDir.mkdirs()
+            }
+            return targetDir.absolutePath
         }
     }
 }

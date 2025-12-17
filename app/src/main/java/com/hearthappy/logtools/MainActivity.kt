@@ -1,69 +1,24 @@
 package com.hearthappy.logtools
 
 import android.content.Intent
-import android.content.Intent.ACTION_OPEN_DOCUMENT
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
-import com.hearthappy.logs.LogTools
-import com.hjq.permissions.OnPermissionCallback
+import com.hearthappy.log.Logger
+import com.hearthappy.log.core.LogManager.getListFile
 import com.hjq.permissions.Permission
 import com.hjq.permissions.XXPermissions
-import java.io.BufferedReader
-import java.io.File
-import java.io.InputStreamReader
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
-        requestPermissions()
-
     }
 
-    private fun MainActivity.requestPermissions() {
-        XXPermissions.with(this@MainActivity).permission(Permission.WRITE_EXTERNAL_STORAGE).request(object : OnPermissionCallback {
-            override fun onGranted(permissions: MutableList<String>?, all: Boolean) {
-                outLog()
-            }
-        }) //        PermissionManager.with(this).permission(object : OnPermissionCallback {
-        //            override fun onGranted(permissions: MutableList<String>, allGranted: Boolean) {
-        //                if (allGranted) { //                    outLog()
-        //                }
-        //            }
-        //
-        //            override fun onDenied(permissions: MutableList<String>, doNotAskAgain: Boolean) {
-        //                if (doNotAskAgain) { // 如果是被永久拒绝就跳转到应用权限系统设置页面
-        //                    XXPermissions.startPermissionActivity(this@MainActivity, permissions)
-        //                } else {
-        //                    Toast.makeText(this@MainActivity, "权限被拒绝！", Toast.LENGTH_SHORT).show()
-        //                    finish()
-        //                }
-        //            }
-        //        }, PermissionManager.STORAGE)
-    }
-
-    private fun outLog() {
-        LogTools.common.t(TAG).d("outLog : common test")
-        LogTools.common.t(TAG).d("outLog : common onCreate d")
-        LogTools.common.t(TAG).i("outLog : common onCreate i")
-        LogTools.common.t(TAG).w("outLog : common onCreate w")
-
-        LogTools.important.t(TAG).d("outLog : important onCreate d")
-
-        LogTools.kernel.t(TAG).d("outLog :kernel onCreate d")
-        LogTools.kernel.t(TAG).d("outLog :kernel onResume d")
-        LogTools.kernel.t(TAG).i("outLog :kernel onCreate1 i")
-        LogTools.kernel.t(TAG).i("outLog :kernel onCreate2 i")
-        LogTools.kernel.t(TAG).d("outLog :kernel onCreate3 d")
-    }
 
     companion object {
         private const val TAG = "MainActivity"
@@ -71,20 +26,36 @@ class MainActivity : AppCompatActivity() {
 
 
     fun outLogAndFile(view: View) {
-        outLog()
+        XXPermissions.with(this@MainActivity).permission(Permission.WRITE_EXTERNAL_STORAGE).request { permissions, all ->
+
+            if (all) {
+                Logger.COMMON.d("common test")
+                Logger.COMMON.d("common onCreate d")
+                Logger.COMMON.i("common onCreate i")
+                Logger.COMMON.w("common onCreate w")
+
+                Logger.IMPORTANT.d("important onCreate d")
+
+                Logger.KERNEL.d("kernel onCreate d")
+                Logger.KERNEL.w("kernel onResume w")
+                Logger.KERNEL.i("kernel onCreate1 i")
+                Logger.KERNEL.v("kernel onCreate3 v")
+                Logger.KERNEL.e("kernel onCreate2 e", Throwable("runtime error"))
+            }
+        }
     }
 
     fun deleteLogFile(view: View) {
-        LogTools.common.clear("Common")
+        Logger.COMMON.clear()
     }
 
     fun deleteAllLogFile(view: View) {
-        val clearAll = LogTools.kernel.clearAll()
+        val clearAll = Logger.clearAllFiles()
         val d = Log.d(TAG, "deleteAllLogFile: $clearAll")
     }
 
     fun openFile(view: View) {
-        val csvFile = LogTools.getListFile("Kernel")?.last() // 2. 打开CSV文件的核心方法
+        val csvFile = Logger.KERNEL.getListFiles()?.last() // 2. 打开CSV文件的核心方法
         csvFile?.let { file ->
             try { // 生成Content URI（适配Android 7.0+）
                 val fileUri = FileProvider.getUriForFile(applicationContext, "${BuildConfig.APPLICATION_ID}.fileprovider", file)

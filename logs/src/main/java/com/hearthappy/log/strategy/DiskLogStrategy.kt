@@ -1,8 +1,9 @@
-package com.hearthappy.logs
+package com.hearthappy.log.strategy
 
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
+import com.hearthappy.log.core.Utils
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException
@@ -65,15 +66,7 @@ class DiskLogStrategy(handler: Handler) : LogStrategy {
                     return File(folder, String.format("%s_%s.csv", fileName, newFileCount))
                 }
             }
-            return file/*newFile = File(folder, String.format("%s_%s.csv", fileName, newFileCount))
-            while (newFile.exists()) {
-                existingFile = newFile
-                newFileCount++
-                newFile = File(folder, String.format("%s_%s.csv", fileName, newFileCount))
-            }
-            return existingFile?.run {
-                if (this.length() >= maxFileSize) newFile else existingFile
-            } ?: newFile*/
+            return file
         }
     }
 

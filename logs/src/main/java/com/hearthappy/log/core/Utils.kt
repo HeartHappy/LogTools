@@ -1,5 +1,6 @@
-package com.hearthappy.logs
+package com.hearthappy.log.core
 
+import android.util.Log
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.net.UnknownHostException

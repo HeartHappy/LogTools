@@ -1,4 +1,4 @@
-package com.hearthappy.logs
+package com.hearthappy.log.strategy
 
 /**
  * Determines destination target for the logs such as Disk, Logcat etc.

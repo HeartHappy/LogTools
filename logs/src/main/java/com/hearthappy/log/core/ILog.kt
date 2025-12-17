@@ -1,12 +1,10 @@
-package com.hearthappy.logs
+package com.hearthappy.log.core
 
 interface ILog {
 
-    fun t(tag: String): ILog
-
     fun d(message: String, vararg args: Any?)
 
-    fun d(`object`: Any?)
+    fun d(obj: Any?)
 
     fun e(message: String, vararg args: Any?)
 
@@ -30,9 +28,5 @@ interface ILog {
      */
     fun xml(xml: String?)
 
-    fun log(priority: Int, tag: String?, message: String?, throwable: Throwable?)
-
-    fun clear(scope: String): Boolean
-
-    fun clearAll(): Boolean
+    fun log(level: Int, message: String?, throwable: Throwable?)
 }

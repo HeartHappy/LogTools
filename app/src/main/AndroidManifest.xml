@@ -3,10 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
-
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-
 
     <application
         android:name=".MyApp"
@@ -20,10 +18,14 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LogTool"
         tools:targetApi="31">
-
-        <!-- <meta-data
+        <activity
+            android:name=".MainActivity2"
+            android:exported="false" />
+        <!--
+         <meta-data
              android:name="ScopedStorage"
-             android:value="true" />-->
+             android:value="true" />
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true">

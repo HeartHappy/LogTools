@@ -1,4 +1,4 @@
-package com.hearthappy.logs
+package com.hearthappy.log.interceptor
 
 open class LogInterceptorAdapter : LogInterceptor {
 

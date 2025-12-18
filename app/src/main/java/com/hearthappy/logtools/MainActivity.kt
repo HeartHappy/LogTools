@@ -9,7 +9,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import com.hearthappy.log.Logger
-import com.hearthappy.log.core.LogManager.getListFile
 import com.hjq.permissions.Permission
 import com.hjq.permissions.XXPermissions
 
@@ -34,18 +33,22 @@ class MainActivity : AppCompatActivity() {
                 Logger.COMMON.i("common onCreate i")
                 Logger.COMMON.w("common onCreate w")
 
-                Logger.IMPORTANT.d("important onCreate d")
+                Logger.IMPORTANT.d("important onCreate d 挺不错的，哈哈")
 
                 Logger.KERNEL.d("kernel onCreate d")
                 Logger.KERNEL.w("kernel onResume w")
                 Logger.KERNEL.i("kernel onCreate1 i")
                 Logger.KERNEL.v("kernel onCreate3 v")
-                Logger.KERNEL.e("kernel onCreate2 e", Throwable("runtime error"))
+                Logger.ERROR.e("kernel onCreate2 e", Throwable("runtime error"))
+                Logger.KERNEL.i("${Logger.KERNEL.getDirectory()}")
+
+                MyApp.CUSTOM_SCOPE.d("自定义的作用域日志  测试！！！")
             }
         }
     }
 
     fun deleteLogFile(view: View) {
+        Logger.KERNEL.deleteOldestSingleFile()
         Logger.COMMON.clear()
     }
 

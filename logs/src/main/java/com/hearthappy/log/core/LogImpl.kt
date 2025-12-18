@@ -35,11 +35,10 @@ internal class LogImpl(private var scope: LogScope, private val interceptor: Log
         val folder = diskPath + File.separatorChar + "logger"
         val ht = HandlerThread("AndroidFileLogger.$folder")
         ht.start()
-        val handler: Handler = DiskLogStrategy.WriteHandler(ht.looper, folder, MAX_BYTES, scope.tag)
+        val handler: Handler = DiskLogStrategy.WriteHandler(ht.looper, folder, MAX_BYTES, scope.getTag())
         return DiskLogStrategy(handler)
     }
 
-    private val date: Date by lazy { Date() }
 
 
     override fun d(message: String, vararg args: Any?) {
@@ -133,7 +132,7 @@ internal class LogImpl(private var scope: LogScope, private val interceptor: Log
             val methodName = LogFormatter.format(stackTraceInfo)
             val logMsg = throwable?.run { "$msg : $NEW_LINE" + Utils.getStackTraceString(this) } ?: msg
             val builder = StringBuilder()
-            builder.append(LogFormatter.DATE_FORMAT.format(date))
+            builder.append(LogFormatter.DATE_FORMAT.format(Date()))
             builder.append(SEPARATOR)
 
             // level
@@ -184,7 +183,7 @@ internal class LogImpl(private var scope: LogScope, private val interceptor: Log
         private val NEW_LINE = System.lineSeparator()
 //        private const val NEW_LINE_REPLACEMENT = " <br> "
 
-        const val MAX_BYTES = 500 * 1024 // 500K averages to a 4000 lines per file
+        const val MAX_BYTES = 100 * 1024 // 500K averages to a 4000 lines per file
 
     }
 }

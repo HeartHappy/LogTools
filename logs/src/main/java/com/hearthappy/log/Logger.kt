@@ -4,8 +4,10 @@ import android.app.Application
 import android.content.Context
 import com.hearthappy.log.core.ContextHolder
 import com.hearthappy.log.core.LogManager
+import com.hearthappy.log.core.LogOutputter
 import com.hearthappy.log.core.LogScope
 import com.hearthappy.log.core.LogScopeProxy
+import com.hearthappy.log.interceptor.LogInterceptor
 import java.io.File
 
 
@@ -20,15 +22,19 @@ import java.io.File
 class Logger {
     companion object {
         // ========== 内置Scope（直接调用） ==========
-        val COMMON = LogScopeProxy(LogScope.COMMON)
-        val IMPORTANT = LogScopeProxy(LogScope.IMPORTANT)
-        val KERNEL = LogScopeProxy(LogScope.KERNEL)
-        val ERROR = LogScopeProxy(LogScope.ERROR)
+        val COMMON = LogScopeProxy("Common")
+        val IMPORTANT = LogScopeProxy("Important")
+        val KERNEL = LogScopeProxy("Kernel")
+        val ERROR = LogScopeProxy("Error")
 
         // ========== 自定义Scope（扩展用） ==========
-        fun withScope(scope: LogScope) = LogScopeProxy(scope)
+        fun registerScope(scope: LogScope, diskPath: String? = null, logInterceptor: LogInterceptor) {
+            LogManager.registerOutputter(scope.getTag(), LogOutputter(scope =scope, context = ContextHolder.getAppContext(), diskPath = diskPath, logInterceptor))
+        }
 
-
+        fun createScope(customScope: String): LogScopeProxy {
+           return LogManager.create(customScope)
+        }
 
 
         /**
@@ -44,7 +50,7 @@ class Logger {
          */
         fun clearAllFiles() = LogManager.clearAll()
 
-        fun getAllFiles(): List<File>?{
+        fun getAllFiles(): List<File>? {
             return LogManager.getAllFiles()
         }
     }

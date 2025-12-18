@@ -5,7 +5,7 @@ import java.io.File
 /**
  * Scope代理类：封装不同等级的日志调用
  */
-class LogScopeProxy(private val scope: LogScope) {
+class LogScopeProxy(private val scope: String):LogScope {
     // VERBOSE
     fun v(message: String) = output(LogLevel.VERBOSE, message)
 
@@ -38,10 +38,22 @@ class LogScopeProxy(private val scope: LogScope) {
     }
 
     fun getListFiles(): List<File>? {
-        return LogManager.getListFile(scope.tag)
+        return LogManager.getListFile(scope)
+    }
+
+    fun getDirectory(): String? {
+        return LogManager.getDirectory()
     }
 
     fun clear() {
-        LogManager.clearAll()
+        LogManager.clear(scope)
+    }
+
+    fun deleteOldestSingleFile(): Boolean {
+       return LogManager.deleteOldestSingleFile(scope)
+    }
+
+    override fun getTag(): String {
+        return scope
     }
 }

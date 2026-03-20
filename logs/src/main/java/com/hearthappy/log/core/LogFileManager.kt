@@ -5,14 +5,13 @@ import android.os.Environment
 import android.util.Log
 import com.hearthappy.log.Logger
 import com.hearthappy.log.interceptor.LogInterceptorAdapter
-import com.hearthappy.logs.BuildConfig
 import java.io.File
 import java.util.regex.Pattern
 
 /**
- * 日志管理器：单例管理所有Scope的输出器，统一初始化，支持扩展
+ * 日志文件管理器：单例管理所有Scope的输出器，统一初始化，支持扩展
  */
-internal object LogManager {
+internal object LogFileManager {
     const val TAG = "Logger"
     private var diskPath: String? = null
     private val outputterMap = mutableMapOf<String, LogOutputter>()
@@ -21,31 +20,37 @@ internal object LogManager {
     /**
      * 全局初始化（Application中调用）
      */
-    fun init(diskPath: String? = null) {
-        this.diskPath = diskPath
+    fun init(outputConfig: OutputConfig) {
+        this.diskPath = outputConfig.fileConfig?.diskPath
         LogContextCollector.init(ContextHolder.getAppContext() as Application)
-        initDefaultOutputters()
+        initDefaultOutputters(outputConfig.isLog,outputConfig.isWriteDatabase,outputConfig.fileConfig?.isWriteFile?:false)
     }
+
 
     /**
      * 初始化默认Scope输出器：新增Scope只需在此添加
      */
-    private fun initDefaultOutputters() {
-        outputterMap[Logger.COMMON.getTag()] = LogOutputter(scope = Logger.COMMON, context = ContextHolder.getAppContext(), diskPath = diskPath, object : LogInterceptorAdapter() {
-            override fun isDebug(): Boolean = BuildConfig.DEBUG
-            override fun isWriteFile(): Boolean = true
+    private fun initDefaultOutputters(isLog: Boolean,isWriteDatabase: Boolean, isWriteFile: Boolean) {
+        if (outputterMap.isNotEmpty()) outputterMap.clear()
+        outputterMap[Logger.COMMON.getTag()] = LogOutputter(scope = Logger.COMMON, object: LogInterceptorAdapter() {
+            override fun isDebug(): Boolean =isLog
+            override fun isWriteFile(): Boolean = isWriteFile
+            override fun isWriteDatabase(): Boolean = isWriteDatabase
         })
-        outputterMap[Logger.IMPORTANT.getTag()] = LogOutputter(scope = Logger.IMPORTANT, context = ContextHolder.getAppContext(), diskPath = diskPath, object : LogInterceptorAdapter() {
-            override fun isDebug(): Boolean = BuildConfig.DEBUG
-            override fun isWriteFile(): Boolean = true
+        outputterMap[Logger.IMPORTANT.getTag()] = LogOutputter(scope = Logger.IMPORTANT, object: LogInterceptorAdapter() {
+            override fun isDebug(): Boolean = isLog
+            override fun isWriteFile(): Boolean = isWriteFile
+            override fun isWriteDatabase(): Boolean = isWriteDatabase
         })
-        outputterMap[Logger.KERNEL.getTag()] = LogOutputter(scope = Logger.KERNEL, context = ContextHolder.getAppContext(), diskPath = diskPath, object : LogInterceptorAdapter() {
-            override fun isDebug(): Boolean = BuildConfig.DEBUG
-            override fun isWriteFile(): Boolean = true
+        outputterMap[Logger.KERNEL.getTag()] = LogOutputter(scope = Logger.KERNEL, object: LogInterceptorAdapter() {
+            override fun isDebug(): Boolean = isLog
+            override fun isWriteFile(): Boolean = isWriteFile
+            override fun isWriteDatabase(): Boolean = isWriteDatabase
         })
-        outputterMap[Logger.ERROR.getTag()] = LogOutputter(scope = Logger.ERROR, context = ContextHolder.getAppContext(), diskPath = diskPath, object : LogInterceptorAdapter() {
-            override fun isDebug(): Boolean = BuildConfig.DEBUG
-            override fun isWriteFile(): Boolean = true
+        outputterMap[Logger.ERROR.getTag()] = LogOutputter(scope = Logger.ERROR, object: LogInterceptorAdapter() {
+            override fun isDebug(): Boolean = isLog
+            override fun isWriteFile(): Boolean = isWriteFile
+            override fun isWriteDatabase(): Boolean = isWriteDatabase
         })
     }
 
@@ -71,13 +76,16 @@ internal object LogManager {
         return outputterMap[scope] ?: throw IllegalArgumentException("未注册的Scope：${scope}")
     }
 
+    internal fun getDiskPath(): String {
+        return diskPath?: Environment.getExternalStorageDirectory().absolutePath
+    }
+
     /**
      * 清空所有日志文件
      */
 
     internal fun clear(scope: String): Boolean {
-        val diskPath = this.diskPath ?: Environment.getExternalStorageDirectory().absolutePath
-        val folder = diskPath.plus(File.separatorChar).plus("logger")
+        val folder = getDiskPath().plus(File.separatorChar).plus("logger")
         val results = arrayListOf<Boolean>()
         val map = File(folder).listFiles()?.mapNotNull { if (it.name.contains(scope)) it else null }
         map?.forEachIndexed { _, file ->
@@ -89,8 +97,7 @@ internal object LogManager {
     }
 
     internal fun clearAll(): Boolean {
-        val diskPath = this.diskPath ?: Environment.getExternalStorageDirectory().absolutePath
-        val folder = diskPath.plus(File.separatorChar).plus("logger")
+        val folder =  getDiskPath().plus(File.separatorChar).plus("logger")
         val results = arrayListOf<Boolean>()
         File(folder).listFiles()?.forEach { results.add(it.delete()) }
         val find = results.find { !it }
@@ -98,8 +105,7 @@ internal object LogManager {
     }
 
     internal fun getListFile(scope: String): List<File>? {
-        val diskPath = this.diskPath ?: Environment.getExternalStorageDirectory().absolutePath
-        val folder = diskPath.plus(File.separator).plus("logger/")
+        val folder =  getDiskPath().plus(File.separator).plus("logger/")
         val targetDir = File(folder)
         val files = targetDir.listFiles { file ->
             file.isFile && file.name.startsWith(scope.plus("_log_"))
@@ -115,8 +121,7 @@ internal object LogManager {
     }
 
     internal fun getDirectory(): String {
-        val diskPath = this.diskPath ?: Environment.getExternalStorageDirectory().absolutePath
-        return diskPath.plus(File.separator).plus("logger/")
+        return  getDiskPath().plus(File.separator).plus("logger/")
     }
 
     /**
@@ -127,8 +132,7 @@ internal object LogManager {
      */
     internal fun deleteOldestSingleFile(scope: String): Boolean {
         synchronized(this) { // 加同步锁，避免并发问题
-            val diskPath = this.diskPath ?: Environment.getExternalStorageDirectory().absolutePath
-            val folderPath = diskPath.plus(File.separator).plus("logger/")
+            val folderPath =  getDiskPath().plus(File.separator).plus("logger/")
             val filePrefix = scope.plus("_log_")
             val fileSuffix = ".csv"
             val fileNumPattern = Pattern.compile("${filePrefix}(\\d+)${fileSuffix}")
@@ -158,6 +162,5 @@ internal object LogManager {
             return false
         }
     }
-
 
 }

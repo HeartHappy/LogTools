@@ -1,11 +1,12 @@
 package com.hearthappy.log.core
 
+import com.hearthappy.log.db.LogDbManager
 import java.io.File
 
 /**
  * Scope代理类：封装不同等级的日志调用
  */
-class LogScopeProxy(private val scope: String):LogScope {
+class LogScopeProxy(private val scope: String): LogScope {
     // VERBOSE
     fun v(message: String) = output(LogLevel.VERBOSE, message)
 
@@ -34,23 +35,39 @@ class LogScopeProxy(private val scope: String):LogScope {
      * 核心输出方法
      */
     private fun output(level: LogLevel, message: String, throwable: Throwable? = null) {
-        LogManager.getOutputter(scope).output(level, message, throwable)
+        LogFileManager.getOutputter(scope).output(level, message, throwable)
     }
 
     fun getListFiles(): List<File>? {
-        return LogManager.getListFile(scope)
+        return LogFileManager.getListFile(scope)
     }
 
     fun getDirectory(): String? {
-        return LogManager.getDirectory()
+        return LogFileManager.getDirectory()
     }
 
-    fun clear() {
-        LogManager.clear(scope)
+    fun clearAllFiles(): Boolean {
+      return  LogFileManager.clear(scope)
     }
 
     fun deleteOldestSingleFile(): Boolean {
-       return LogManager.deleteOldestSingleFile(scope)
+        return LogFileManager.deleteOldestSingleFile(scope)
+    }
+
+    fun queryLogs(time: String? = null, tag: String? = null, level: Int? = null, method: String? = null, keyword: String? = null, isAsc: Boolean = false, limit: Int = 100): List<Map<String, Any>> {
+        return LogDbManager.getInstance(ContextHolder.getAppContext()).queryLogsAdvanced(scope, time, tag, level, method, keyword, isAsc, limit)
+    }
+
+    fun getDistinctValues(columnName: String): List<String> {
+        return LogDbManager.getInstance(ContextHolder.getAppContext()).getDistinctValues(scope, columnName)
+    }
+
+    fun deleteLogs(time: String? = null): Int {
+        return LogDbManager.getInstance(ContextHolder.getAppContext()).deleteLogs(scope, time)
+    }
+
+    fun clearAllLogs(): Boolean {
+        return LogDbManager.getInstance(ContextHolder.getAppContext()).clearAllLogs()
     }
 
     override fun getTag(): String {

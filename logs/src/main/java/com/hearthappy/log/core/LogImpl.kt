@@ -1,13 +1,14 @@
 package com.hearthappy.log.core
 
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.hearthappy.log.core.LogFileManager.getDiskPath
+import com.hearthappy.log.db.LogDbManager
 import com.hearthappy.log.interceptor.LogInterceptor
 import com.hearthappy.log.strategy.DiskLogStrategy
 import com.hearthappy.log.strategy.LogStrategy
@@ -25,20 +26,19 @@ import javax.xml.transform.TransformerFactory
 import javax.xml.transform.stream.StreamResult
 import javax.xml.transform.stream.StreamSource
 
-internal class LogImpl(private var scope: LogScope, private val interceptor: LogInterceptor, private val context: Context?, private val diskPath: String?) : ILog {
+internal class LogImpl(private var scope: LogScope, private val interceptor: LogInterceptor): ILog {
 
 
     private val logStrategy: LogStrategy by lazy { initLogStrategy() }
 
+
     private fun initLogStrategy(): DiskLogStrategy {
-        val diskPath = this@LogImpl.diskPath ?: Environment.getExternalStorageDirectory().absolutePath
-        val folder = diskPath + File.separatorChar + "logger"
+        val folder =  getDiskPath() + File.separatorChar + "logger"
         val ht = HandlerThread("AndroidFileLogger.$folder")
         ht.start()
         val handler: Handler = DiskLogStrategy.WriteHandler(ht.looper, folder, MAX_BYTES, scope.getTag())
         return DiskLogStrategy(handler)
     }
-
 
 
     override fun d(message: String, vararg args: Any?) {
@@ -112,11 +112,13 @@ internal class LogImpl(private var scope: LogScope, private val interceptor: Log
         } ?: d("Empty/Null xml content")
     }
 
-    @Synchronized
-    override fun log(level: Int, message: String?, throwable: Throwable?) {
+    @Synchronized override fun log(level: Int, message: String?, throwable: Throwable?) {
         val msg = message ?: return
         val stackTraceInfo = LogContextCollector.getStackTraceInfo()
+        val logLevel = Utils.logLevel(level)
         val tag: String = formatTag(stackTraceInfo.className)
+        val methodName = LogFormatter.format(stackTraceInfo)
+        val logMsg = throwable?.run { "$msg : $NEW_LINE" + Utils.getStackTraceString(this) } ?: msg
         if (interceptor.isDebug()) {
             when (level) {
                 Log.VERBOSE -> Log.v(tag, msg)
@@ -128,15 +130,12 @@ internal class LogImpl(private var scope: LogScope, private val interceptor: Log
             }
         }
         if (interceptor.isWriteFile()) {
-
-            val methodName = LogFormatter.format(stackTraceInfo)
-            val logMsg = throwable?.run { "$msg : $NEW_LINE" + Utils.getStackTraceString(this) } ?: msg
             val builder = StringBuilder()
             builder.append(LogFormatter.DATE_FORMAT.format(Date()))
             builder.append(SEPARATOR)
 
             // level
-            builder.append(Utils.logLevel(level))
+            builder.append(logLevel)
             builder.append(SEPARATOR)
 
             // tag
@@ -152,13 +151,15 @@ internal class LogImpl(private var scope: LogScope, private val interceptor: Log
 
             // new line
             builder.append(NEW_LINE)
-            context?.apply {
-                if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
-                    logStrategy.log(level, tag, builder.toString())
-                } else {
-                    e(tag, "No file write permission")
-                }
-            } ?: e(tag, "The logging framework does not obtain the application context")
+            if (ContextCompat.checkSelfPermission(ContextHolder.getAppContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                logStrategy.log(level, tag, builder.toString())
+            } else {
+                e(tag, "No file write permission")
+            }
+        }
+
+        if (interceptor.isWriteDatabase()) {
+            LogDbManager.getInstance(ContextHolder.getAppContext()).insertLog(scopeTag = scope.getTag(), level = logLevel, classTag = tag, method = methodName, message = logMsg)
         }
     }
 
@@ -170,7 +171,7 @@ internal class LogImpl(private var scope: LogScope, private val interceptor: Log
     }
 
     private fun formatTag(tag: String?): String {
-        return tag?.run { this } ?: LogManager.TAG
+        return tag?.run { this } ?: LogFileManager.TAG
     }
 
     private fun createMessage(message: String, vararg args: Any): String {
@@ -180,8 +181,7 @@ internal class LogImpl(private var scope: LogScope, private val interceptor: Log
     companion object {
         private const val SEPARATOR = ","
         private const val JSON_INDENT = 2
-        private val NEW_LINE = System.lineSeparator()
-//        private const val NEW_LINE_REPLACEMENT = " <br> "
+        private val NEW_LINE = System.lineSeparator() //        private const val NEW_LINE_REPLACEMENT = " <br> "
 
         const val MAX_BYTES = 100 * 1024 // 500K averages to a 4000 lines per file
 

@@ -12,7 +12,7 @@ import com.hearthappy.log.Logger
 import com.hjq.permissions.Permission
 import com.hjq.permissions.XXPermissions
 
-class MainActivity : AppCompatActivity() {
+class MainActivity: AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -49,19 +49,19 @@ class MainActivity : AppCompatActivity() {
 
     fun deleteLogFile(view: View) {
         Logger.KERNEL.deleteOldestSingleFile()
-        Logger.COMMON.clear()
+        Logger.COMMON.clearAllFiles()
     }
 
     fun deleteAllLogFile(view: View) {
         val clearAll = Logger.clearAllFiles()
-        val d = Log.d(TAG, "deleteAllLogFile: $clearAll")
+        Log.d(TAG, "deleteAllLogFile: $clearAll")
     }
 
     fun openFile(view: View) {
         val csvFile = Logger.KERNEL.getListFiles()?.last() // 2. 打开CSV文件的核心方法
         csvFile?.let { file ->
             try { // 生成Content URI（适配Android 7.0+）
-                val fileUri = FileProvider.getUriForFile(applicationContext, "${BuildConfig.APPLICATION_ID}.fileprovider", file)
+                val fileUri = FileProvider.getUriForFile(applicationContext, "${applicationContext.packageName}.fileprovider", file)
 
                 // 构建打开CSV的Intent
                 val intent = Intent(Intent.ACTION_VIEW).apply { // 设置URI和MIME类型（CSV核心类型）
@@ -86,6 +86,14 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "未找到Kernel目录下的有效CSV文件", Toast.LENGTH_SHORT).show()
         }
 
+    }
+
+    fun queryDBLogs(view: View) {
+//        startActivity(Intent(this, PreviewActivity::class.java))
+        val distinctValues = Logger.IMPORTANT.getDistinctValues(Logger.COLUMN_METHOD)
+        Log.i(TAG, "queryDBLogs: ${distinctValues.toList()}")
+        val queryLogs = Logger.IMPORTANT.queryLogs(isAsc = false)
+        Log.i("PreviewActivity", "onCreate: ${queryLogs.toList().joinToString { "$it\n" }}")
     }
 
 }

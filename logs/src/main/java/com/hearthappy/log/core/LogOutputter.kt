@@ -1,6 +1,5 @@
 package com.hearthappy.log.core
 
-import android.content.Context
 import com.hearthappy.log.interceptor.LogInterceptor
 
 /**
@@ -8,10 +7,10 @@ import com.hearthappy.log.interceptor.LogInterceptor
  * @author ChenRui
  * ClassDescription：日志输出器
  */
-class LogOutputter(private val scope: LogScope, private val context: Context?, private val diskPath: String?, private val logInterceptor: LogInterceptor) {
+class LogOutputter(private val scope: LogScope, private val logInterceptor: LogInterceptor) {
 
     private val logImpl: LogImpl by lazy {
-        LogImpl(scope, logInterceptor, context, diskPath)
+        LogImpl(scope, logInterceptor)
     }
 
     /**

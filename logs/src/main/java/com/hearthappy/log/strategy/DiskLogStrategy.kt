@@ -94,7 +94,11 @@ class DiskLogStrategy(handler: Handler) : LogStrategy {
             val targetFile: File = if (maxFileNum == -1) {
                 // 无文件，创建0号文件
                 File(folder, "${filePrefix}0${fileSuffix}").apply {
-                    if (!exists()) createNewFile()
+                   try {
+                       if (!exists()) createNewFile()
+                   }catch (e: Exception){
+                       e.printStackTrace()
+                   }
                 }
             } else {
                 // 有文件，检查最大序号文件的大小

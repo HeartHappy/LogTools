@@ -19,5 +19,11 @@ interface LogInterceptor {
      * 是否写入文件 true：写文件，false：不在写文件
      * @return Boolean
      */
-    fun isWriteFile():Boolean
+    fun isWriteFile(): Boolean
+
+    /**
+     * 是否写入数据库 true：写数据库，false：不在写数据库
+     * @return Boolean
+     */
+    fun isWriteDatabase(): Boolean
 }

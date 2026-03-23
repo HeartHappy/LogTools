@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import com.hearthappy.log.Logger
+import com.hearthappy.logtools.preview.PreviewActivity
 import com.hjq.permissions.Permission
 import com.hjq.permissions.XXPermissions
 
@@ -53,7 +54,7 @@ class MainActivity: AppCompatActivity() {
     }
 
     fun deleteAllLogFile(view: View) {
-        val clearAll = Logger.clearAllFiles()
+        val clearAll = Logger.clear()
         Log.d(TAG, "deleteAllLogFile: $clearAll")
     }
 
@@ -89,11 +90,12 @@ class MainActivity: AppCompatActivity() {
     }
 
     fun queryDBLogs(view: View) {
-//        startActivity(Intent(this, PreviewActivity::class.java))
+
         val distinctValues = Logger.IMPORTANT.getDistinctValues(Logger.COLUMN_METHOD)
         Log.i(TAG, "queryDBLogs: ${distinctValues.toList()}")
         val queryLogs = Logger.IMPORTANT.queryLogs(isAsc = false)
         Log.i("PreviewActivity", "onCreate: ${queryLogs.toList().joinToString { "$it\n" }}")
+        startActivity(Intent(this, PreviewActivity::class.java))
     }
 
 }

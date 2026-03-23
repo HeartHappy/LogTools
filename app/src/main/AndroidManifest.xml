@@ -19,7 +19,7 @@
         android:theme="@style/Theme.LogTool"
         tools:targetApi="31">
         <activity
-            android:name=".PreviewActivity"
+            android:name=".preview.PreviewActivity"
             android:exported="false" />
         <!--
          <meta-data

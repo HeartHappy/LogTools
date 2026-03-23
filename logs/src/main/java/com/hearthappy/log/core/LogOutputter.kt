@@ -7,16 +7,14 @@ import com.hearthappy.log.interceptor.LogInterceptor
  * @author ChenRui
  * ClassDescription：日志输出器
  */
-class LogOutputter(private val scope: LogScope, private val logInterceptor: LogInterceptor) {
+class LogOutputter(val scope: LogScope, private val logInterceptor: LogInterceptor) {
 
-    private val logImpl: LogImpl by lazy {
-        LogImpl(scope, logInterceptor)
-    }
+    private val logImpl by lazy { LogImpl(scope, logInterceptor) }
 
     /**
      * 输出日志（自动处理上下文+格式化）
      */
-    fun output(level: LogLevel, message: String, throwable: Throwable? = null) {
+    internal fun output(level: LogLevel, message: String, throwable: Throwable? = null) {
         logImpl.log(level.level, message, throwable)
     }
 }

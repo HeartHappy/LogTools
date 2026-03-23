@@ -61,7 +61,7 @@ class LogDbManager(context: Context) {
      * @param time 模糊匹配，可传 "2026-03-20" 或 "2026-03-20 15"
      * @param method 模糊匹配方法名
      */
-    fun queryLogsAdvanced(scopeTag: String, time: String? = null, tag: String? = null, level: Int? = null, method: String? = null, keyword: String? = null, isAsc: Boolean = false, limit: Int = 100): List<Map<String, Any>> {
+    fun queryLogsAdvanced(scopeTag: String, time: String? = null, tag: String? = null, level: String? = null, method: String? = null, keyword: String? = null, isAsc: Boolean = false, limit: Int = 100): List<Map<String, Any>> {
         val tableName = getTableName(scopeTag)
         val list = mutableListOf<Map<String, Any>>()
         val selection = StringBuilder()
@@ -75,7 +75,7 @@ class LogDbManager(context: Context) {
             addFilter(selection, "$COLUMN_TAG = ?", it, selectionArgs)
         } // Level 精确查询
         level?.let {
-            addFilter(selection, "$COLUMN_LEVEL = ?", it.toString(), selectionArgs)
+            addFilter(selection, "$COLUMN_LEVEL = ?", it, selectionArgs)
         } // Method 模糊查询
         method?.let {
             addFilter(selection, "$COLUMN_METHOD LIKE ?", "%$it%", selectionArgs)

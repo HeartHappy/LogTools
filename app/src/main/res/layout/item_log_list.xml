@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+
+    <LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+
+        <TextView
+            android:id="@+id/tvTime"
+            android:layout_width="140dp"
+            tools:text="2026-03-20 16:45:46"
+            style="@style/style_item_text" />
+
+        <TextView
+            android:id="@+id/tvLevel"
+            android:layout_width="80dp"
+            style="@style/style_item_text"
+            tools:text="DEBUG" />
+
+        <TextView
+            android:id="@+id/tvTag"
+            android:layout_width="120dp"
+            style="@style/style_item_text"
+            tools:text="MainActivity" />
+
+        <TextView
+            android:id="@+id/tvMethod"
+            android:layout_width="200dp"
+            style="@style/style_item_text"
+            tools:text="outLogAndFile$lambda$0(36)" />
+
+        <TextView
+            android:id="@+id/tvMessage"
+            android:layout_width="wrap_content"
+            style="@style/style_item_text"
+            tools:text="important onCreate d 挺不错的，哈哈" />
+    </LinearLayout>

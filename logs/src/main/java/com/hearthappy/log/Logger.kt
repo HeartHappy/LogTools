@@ -5,6 +5,7 @@ import android.content.Context
 import com.hearthappy.log.core.ContextHolder
 import com.hearthappy.log.core.LogFileManager
 import com.hearthappy.log.core.LogOutputter
+import com.hearthappy.log.core.LogOutputterManager
 import com.hearthappy.log.core.LogScope
 import com.hearthappy.log.core.LogScopeProxy
 import com.hearthappy.log.core.OutputConfig
@@ -41,13 +42,17 @@ class Logger {
         val ERROR = LogScopeProxy("Error")
 
         // ========== 自定义Scope（扩展用） ==========
-        fun registerScope(scope: LogScope, logInterceptor: LogInterceptor) {
-            LogFileManager.registerOutputter(scope.getTag(), LogOutputter(scope = scope, logInterceptor))
+        fun registerScope(logInterceptor: LogInterceptor, vararg scopes: LogScope) {
+            for (scope in scopes) {
+                LogOutputterManager.registerOutputter(scope.getTag(), LogOutputter(scope = scope, logInterceptor))
+            }
         }
 
         fun createScope(customScope: String): LogScopeProxy {
-            return LogFileManager.create(customScope)
+            return LogOutputterManager.create(customScope)
         }
+
+
 
 
         /**
@@ -55,20 +60,29 @@ class Logger {
          */
         fun init(context: Context, outputConfig: OutputConfig = OutputConfig()) {
             ContextHolder.init(context as Application)
-            LogFileManager.init(outputConfig)
+            LogFileManager.init(outputConfig.fileConfig)
+            LogOutputterManager.initDefaultOutputters(outputConfig)
         }
 
+        fun getScopes(): List<String> {
+            return LogOutputterManager.getScopes().toList()
+        }
+
+        fun getOutputters(): List<LogOutputter> {
+            return LogOutputterManager.getOutputters().toList()
+        }
+
+
         /**
-         * 清空所有日志
+         * 清空所有日志,包括文件和数据库
          */
-        fun clearAllFiles() = LogFileManager.clearAll()
+        fun clear() {
+            LogFileManager.clearAll()
+            LogDbManager.getInstance(ContextHolder.getAppContext()).clearAllLogs()
+        }
 
         fun getAllFiles(): List<File>? {
             return LogFileManager.getAllFiles()
-        }
-
-        fun clearAllLogs(): Boolean {
-            return LogDbManager.getInstance(ContextHolder.getAppContext()).clearAllLogs()
         }
 
     }

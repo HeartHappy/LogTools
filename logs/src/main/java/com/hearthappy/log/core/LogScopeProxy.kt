@@ -35,7 +35,7 @@ class LogScopeProxy(private val scope: String): LogScope {
      * 核心输出方法
      */
     private fun output(level: LogLevel, message: String, throwable: Throwable? = null) {
-        LogFileManager.getOutputter(scope).output(level, message, throwable)
+        LogOutputterManager.getOutputter(scope).output(level, message, throwable)
     }
 
     fun getListFiles(): List<File>? {
@@ -54,7 +54,7 @@ class LogScopeProxy(private val scope: String): LogScope {
         return LogFileManager.deleteOldestSingleFile(scope)
     }
 
-    fun queryLogs(time: String? = null, tag: String? = null, level: Int? = null, method: String? = null, keyword: String? = null, isAsc: Boolean = false, limit: Int = 100): List<Map<String, Any>> {
+    fun queryLogs(time: String? = null, tag: String? = null, level: String? = null, method: String? = null, keyword: String? = null, isAsc: Boolean = false, limit: Int = 100): List<Map<String, Any>> {
         return LogDbManager.getInstance(ContextHolder.getAppContext()).queryLogsAdvanced(scope, time, tag, level, method, keyword, isAsc, limit)
     }
 
@@ -72,5 +72,9 @@ class LogScopeProxy(private val scope: String): LogScope {
 
     override fun getTag(): String {
         return scope
+    }
+
+    override fun getProxy(): LogScopeProxy {
+        return this
     }
 }

@@ -1,6 +1,8 @@
 package com.hearthappy.log.core
 
 import com.hearthappy.log.db.LogDbManager
+import com.hearthappy.log.utils.LogExportUtil
+import com.hearthappy.log.utils.LogShareUtil
 import java.io.File
 
 /**
@@ -54,20 +56,36 @@ class LogScopeProxy(private val scope: String): LogScope {
         return LogFileManager.deleteOldestSingleFile(scope)
     }
 
-    fun queryLogs(time: String? = null, tag: String? = null, level: String? = null, method: String? = null, keyword: String? = null, isAsc: Boolean = false, limit: Int = 100): List<Map<String, Any>> {
-        return LogDbManager.getInstance(ContextHolder.getAppContext()).queryLogsAdvanced(scope, time, tag, level, method, keyword, isAsc, limit)
+    fun queryLogs(time: String? = null, tag: String? = null, level: String? = null, method: String? = null, keyword: String? = null, isAsc: Boolean = false, page: Int = 1, limit: Int? = 100): List<Map<String, Any>> {
+        return LogDbManager.queryLogsAdvanced(scope, time, tag, level, method, keyword, isAsc, page, limit)
     }
 
     fun getDistinctValues(columnName: String): List<String> {
-        return LogDbManager.getInstance(ContextHolder.getAppContext()).getDistinctValues(scope, columnName)
+        return LogDbManager.getDistinctValues(scope, columnName)
     }
 
     fun deleteLogs(time: String? = null): Int {
-        return LogDbManager.getInstance(ContextHolder.getAppContext()).deleteLogs(scope, time)
+        return LogDbManager.deleteLogs(scope, time)
     }
 
     fun clearAllLogs(): Boolean {
-        return LogDbManager.getInstance(ContextHolder.getAppContext()).clearAllLogs()
+        return LogDbManager.clearAllLogs()
+    }
+    // 2. 导出并分享
+    fun doExportAndShare(scope: String, exportAll: Boolean = false, limit: Int = 1000) {
+        // 异步查询并导出，避免 UI 卡顿
+        Thread {
+            val logs = if (exportAll) {
+                LogDbManager.queryLogsAdvanced(scope, limit = null)
+            } else {
+                LogDbManager.queryLogsAdvanced(scope, limit = limit)
+            }
+            val file = LogExportUtil.exportToCsv(ContextHolder.getAppContext(), scope, logs)
+
+            file?.let {
+                LogShareUtil.shareLogFile(ContextHolder.getAppContext(), it)
+            }
+        }.start()
     }
 
     override fun getTag(): String {

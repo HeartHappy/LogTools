@@ -4,6 +4,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.hearthappy.log.Logger
+import com.hearthappy.log.core.ContextHolder
 
 
 /**
@@ -37,7 +38,15 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
         """.trimIndent()
         db.execSQL(sql)
     }
-
+    /**
+     * 获取日志数据库文件的大小（单位：MB）
+     */
+    fun getDbFileSize(): Double {
+        val dbFile = ContextHolder.getAppContext().getDatabasePath(DB_NAME)
+        return if (dbFile.exists()) {
+            dbFile.length().toDouble() / (1024 * 1024)
+        } else 0.0
+    }
     companion object {
         const val DB_NAME = "hearthappy_logs.db"
         const val DB_VERSION = 1

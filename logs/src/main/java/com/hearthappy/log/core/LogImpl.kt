@@ -2,11 +2,11 @@ package com.hearthappy.log.core
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.hearthappy.log.Logger
 import com.hearthappy.log.core.LogFileManager.getDiskPath
 import com.hearthappy.log.db.LogDbManager
 import com.hearthappy.log.interceptor.LogInterceptor
@@ -159,7 +159,7 @@ internal class LogImpl(private var scope: LogScope, private val interceptor: Log
         }
 
         if (interceptor.isWriteDatabase()) {
-            LogDbManager.getInstance(ContextHolder.getAppContext()).insertLog(scopeTag = scope.getTag(), level = logLevel, classTag = tag, method = methodName, message = logMsg)
+            LogDbManager.insertLog(scopeTag = scope.getTag(), level = logLevel, classTag = tag, method = methodName, message = logMsg)
         }
     }
 
@@ -171,7 +171,7 @@ internal class LogImpl(private var scope: LogScope, private val interceptor: Log
     }
 
     private fun formatTag(tag: String?): String {
-        return tag?.run { this } ?: LogFileManager.TAG
+        return tag?.run { this } ?: Logger.TAG
     }
 
     private fun createMessage(message: String, vararg args: Any): String {

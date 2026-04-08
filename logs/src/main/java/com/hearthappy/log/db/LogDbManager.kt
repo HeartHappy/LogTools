@@ -1,18 +1,20 @@
 package com.hearthappy.log.db
 
-import android.content.Context
 import android.database.sqlite.SQLiteStatement
 import android.util.Log
+import com.hearthappy.log.Logger
 import com.hearthappy.log.Logger.Companion.COLUMN_ID
 import com.hearthappy.log.Logger.Companion.COLUMN_LEVEL
 import com.hearthappy.log.Logger.Companion.COLUMN_MESSAGE
 import com.hearthappy.log.Logger.Companion.COLUMN_METHOD
 import com.hearthappy.log.Logger.Companion.COLUMN_TAG
 import com.hearthappy.log.Logger.Companion.COLUMN_TIME
-import com.hearthappy.log.core.LogFileManager
+import com.hearthappy.log.core.ContextHolder
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
-class LogDbManager(context: Context) {
-    private val dbHelper = LogDbHelper(context)
+object LogDbManager {
+    private val dbHelper = LogDbHelper(ContextHolder.getAppContext())
     private val database = dbHelper.writableDatabase
 
     // 缓存不同表的 SQLiteStatement，Key 为表名
@@ -20,6 +22,7 @@ class LogDbManager(context: Context) {
 
     // 记录已存在的表，减少查询次数
     private val existedTables = HashSet<String>()
+    private val scheduledExecutor = Executors.newSingleThreadScheduledExecutor()
 
     private fun getTableName(scopeTag: String): String { // 过滤非法字符，确保表名合法
         val cleanTag = scopeTag.replace(Regex("[^a-zA-Z0-9_]"), "_")
@@ -37,6 +40,10 @@ class LogDbManager(context: Context) {
         }
     }
 
+    fun getDbFileSize(): Double {
+        return dbHelper.getDbFileSize()
+    }
+
     /**
      * 写入日志：根据 scope 自动分表
      */
@@ -52,7 +59,7 @@ class LogDbManager(context: Context) {
             stmt.bindString(4, message)
             stmt.executeInsert()
         } catch (e: Exception) {
-            Log.e("LogDbManager", "Insert failed: ${e.message}")
+            Log.e(Logger.TAG, "Insert failed: ${e.message}")
         }
     }
 
@@ -61,7 +68,7 @@ class LogDbManager(context: Context) {
      * @param time 模糊匹配，可传 "2026-03-20" 或 "2026-03-20 15"
      * @param method 模糊匹配方法名
      */
-    fun queryLogsAdvanced(scopeTag: String, time: String? = null, tag: String? = null, level: String? = null, method: String? = null, keyword: String? = null, isAsc: Boolean = false, limit: Int = 100): List<Map<String, Any>> {
+    fun queryLogsAdvanced(scopeTag: String, time: String? = null, tag: String? = null, level: String? = null, method: String? = null, keyword: String? = null, isAsc: Boolean = false, page: Int = 1, limit: Int? = 100): List<Map<String, Any>> {
         val tableName = getTableName(scopeTag)
         val list = mutableListOf<Map<String, Any>>()
         val selection = StringBuilder()
@@ -85,7 +92,21 @@ class LogDbManager(context: Context) {
         }
 
         val sortOrder = if (isAsc) "ASC" else "DESC"
-        val cursor = database.query(tableName, null, if (selection.isEmpty()) null else selection.toString(), if (selectionArgs.isEmpty()) null else selectionArgs.toTypedArray(), null, null, "$COLUMN_TIME $sortOrder", limit.toString())
+        val offset = if (limit != null) maxOf(0, (page - 1) * limit) else 0
+        val limitClause = when {
+            limit == null -> null
+            else -> "$offset, $limit"
+        }
+        val cursor = database.query(
+            tableName,
+            null,
+            if (selection.isEmpty()) null else selection.toString(),
+            if (selectionArgs.isEmpty()) null else selectionArgs.toTypedArray(),
+            null,
+            null,
+            "$COLUMN_TIME $sortOrder",
+            limitClause
+        )
 
         cursor?.use {
             while (it.moveToNext()) {
@@ -167,10 +188,130 @@ class LogDbManager(context: Context) {
             }
             return true
         } catch (e: Exception) {
-            Log.e(LogFileManager.TAG, "clearAllLogs: ${e.message}")
+            Log.e(Logger.TAG, "clearAllLogs: ${e.message}")
             e.printStackTrace()
             return false
         }
+    }
+
+
+    private var autoCleanFuture: java.util.concurrent.ScheduledFuture<*>? = null
+    private var autoCleanBySizeFuture: java.util.concurrent.ScheduledFuture<*>? = null
+
+    /**
+     * 自动执行清理任务：基于数据库中实际存在的日期范围进行清理
+     * @param retentionDays 保留天数 (例如: 7)
+     */
+    fun startAutoCleanByDate(retentionDays: Int) {
+        if (retentionDays <= 0) return
+
+        // 如果已经开启，先停止之前的任务
+        autoCleanFuture?.cancel(false)
+
+        // 立即执行一次，然后每隔 24 小时执行一次
+        autoCleanFuture = scheduledExecutor.scheduleWithFixedDelay({
+            try {
+                performCleanupByDateRange(retentionDays)
+            } catch (e: Exception) {
+                Log.e(Logger.TAG, "Auto clean by date failed: ${e.message}")
+            }
+        }, 0, 24, TimeUnit.HOURS)
+    }
+
+    private fun performCleanupByDateRange(days: Int) {
+        getAllLogTables().forEach { tableName ->
+            // 1. 查询所有不重复的日期（YYYY-MM-DD），并升序排列
+            val distinctDates = mutableListOf<String>()
+            val sql = "SELECT DISTINCT substr($COLUMN_TIME, 1, 10) as log_date FROM $tableName ORDER BY log_date ASC"
+            database.rawQuery(sql, null)?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val date = cursor.getString(0)
+                    if (date != null) {
+                        distinctDates.add(date)
+                    }
+                }
+            }
+
+            // 2. 如果日期数量超过保留天数，则进行清理
+            if (distinctDates.size > days) {
+                val deleteCount = distinctDates.size - days
+                // 获取需要删除的最后一个日期（第 deleteCount 个日期）
+                val cutoffDate = distinctDates[deleteCount - 1]
+
+                // 3. 删除该日期及其之前的所有数据
+                // 使用 substr(time, 1, 10) <= ? 来确保删除包含 cutoffDate 在内的所有数据
+                val rows = database.delete(tableName, "substr($COLUMN_TIME, 1, 10) <= ?", arrayOf(cutoffDate))
+                Log.d(Logger.TAG, "Auto clean by date for $tableName: deleted $rows rows on or before $cutoffDate. Total dates: ${distinctDates.size}, retention: $days")
+            }
+        }
+    }
+
+    /**
+     * 自动执行清理任务：基于数据库文件大小进行清理
+     * @param maxSizeMb 数据库文件最大允许大小 (MB)
+     * @param cleanSizeMb 每次清理尝试减少的大小 (MB)，实际清理量可能因数据分布和 VACUUM 行为而异
+     */
+    fun startAutoCleanBySize(maxSizeMb: Double, cleanSizeMb: Double) {
+        if (maxSizeMb <= 0 || cleanSizeMb <= 0) return
+
+        // 如果已经开启，先停止之前的任务
+        autoCleanBySizeFuture?.cancel(false)
+
+        // 立即执行一次，然后每隔 24 小时执行一次
+        autoCleanBySizeFuture = scheduledExecutor.scheduleWithFixedDelay({
+            try {
+                performCleanupBySize(maxSizeMb, cleanSizeMb)
+            } catch (e: Exception) {
+                Log.e(Logger.TAG, "Auto clean by size failed: ${e.message}")
+            }
+        }, 0, 24, TimeUnit.HOURS)
+    }
+
+    private fun performCleanupBySize(maxSizeMb: Double, cleanSizeMb: Double) {
+        val dbFile = ContextHolder.getAppContext().getDatabasePath(LogDbHelper.DB_NAME)
+        if (!dbFile.exists()) return
+
+        var currentSizeMb = dbFile.length().toDouble() / (1024.0 * 1024.0)
+        Log.d(Logger.TAG, "Current DB size: $currentSizeMb MB, Max size: $maxSizeMb MB")
+
+        if (currentSizeMb > maxSizeMb) {
+            Log.d(Logger.TAG, "DB size exceeds limit, starting cleanup...")
+            val targetSizeMb = maxSizeMb - cleanSizeMb // 目标大小，尝试清理到这个大小以下
+
+            var cleanedTotalRows = 0
+            var iteration = 0
+            val maxIterations = 10 // 避免无限循环
+
+            while (currentSizeMb > targetSizeMb && iteration < maxIterations) {
+                iteration++
+                var rowsDeletedInIteration = 0
+                getAllLogTables().forEach { tableName ->
+                    // 每次删除 1000 条最旧的数据
+                    val deleteSql = "DELETE FROM $tableName WHERE $COLUMN_ID IN (SELECT $COLUMN_ID FROM $tableName ORDER BY $COLUMN_TIME ASC LIMIT 1000)"
+                    database.execSQL(deleteSql)
+                    rowsDeletedInIteration += 1000 // 假设删除了 1000 条，实际可能少于
+                }
+                cleanedTotalRows += rowsDeletedInIteration
+
+                // 重新获取文件大小
+                currentSizeMb = dbFile.length().toDouble() / (1024.0 * 1024.0)
+                Log.d(Logger.TAG, "Iteration $iteration: Deleted $rowsDeletedInIteration rows. New DB size: $currentSizeMb MB")
+
+                // 如果文件大小没有明显变化，可能需要 VACUUM，但这里避免使用
+                // 实际文件大小可能不会立即减少，但逻辑上旧数据已被删除
+            }
+            Log.d(Logger.TAG, "Auto clean by size finished. Total rows deleted: $cleanedTotalRows. Final DB size: $currentSizeMb MB")
+        }
+    }
+
+
+    private fun getAllLogTables(): List<String> {
+        val tables = mutableListOf<String>()
+        val cursor = database.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%_log'", null)
+        cursor?.use {
+            while (it.moveToNext()) tables.add(it.getString(0))
+        }
+        return tables
     }
 
     // 辅助方法：拼接 SQL 条件
@@ -184,10 +325,5 @@ class LogDbManager(context: Context) {
         return mapOf(COLUMN_ID to it.getInt(it.getColumnIndexOrThrow(COLUMN_ID)), COLUMN_TIME to it.getString(it.getColumnIndexOrThrow(COLUMN_TIME)), COLUMN_LEVEL to it.getString(it.getColumnIndexOrThrow(COLUMN_LEVEL)), COLUMN_TAG to it.getString(it.getColumnIndexOrThrow(COLUMN_TAG)), COLUMN_METHOD to it.getString(it.getColumnIndexOrThrow(COLUMN_METHOD)), COLUMN_MESSAGE to it.getString(it.getColumnIndexOrThrow(COLUMN_MESSAGE)))
     }
 
-    companion object {
-        @Volatile private var instance: LogDbManager? = null
-        fun getInstance(context: Context) = instance ?: synchronized(this) {
-            instance ?: LogDbManager(context.applicationContext).also { instance = it }
-        }
-    }
+
 }

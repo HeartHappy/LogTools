@@ -3,6 +3,8 @@ package com.hearthappy.logtools
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.widget.Toast
@@ -12,11 +14,46 @@ import com.hearthappy.log.Logger
 import com.hearthappy.logtools.preview.PreviewActivity
 import com.hjq.permissions.Permission
 import com.hjq.permissions.XXPermissions
+import java.util.Random
 
 class MainActivity: AppCompatActivity() {
+    private val handler = Handler(Looper.getMainLooper())
+    private val random = Random()
+    private var logCount = 0
+
+    private val logRunnable = object: Runnable {
+        override fun run() {
+            val level = when (random.nextInt(5)) {
+                0 -> "D"
+                1 -> "I"
+                2 -> "W"
+                3 -> "E"
+                else -> "V"
+            }
+            val message = "测试日志消息 $logCount - ${System.currentTimeMillis()}"
+            Logger.COMMON.i("testMethod:$message")
+            logCount++
+            if (logCount % 100 == 0) {
+                Log.d(TAG, "Inserted $logCount logs.")
+            }
+            handler.postDelayed(this, 100) // 每100毫秒插入一条日志
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // 启动循环插入日志
+//        handler.post(logRunnable)
+
+        val dbFileSize = Logger.getDbFileSize()
+        Log.i(TAG, "onCreate: $dbFileSize")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        handler.removeCallbacks(logRunnable)
     }
 
 
@@ -42,7 +79,7 @@ class MainActivity: AppCompatActivity() {
                 Logger.KERNEL.v("kernel onCreate3 v")
                 Logger.ERROR.e("kernel onCreate2 e", Throwable("runtime error"))
                 Logger.KERNEL.i("${Logger.KERNEL.getDirectory()}")
-
+                Logger.COMMON.json("")
                 MyApp.CUSTOM_SCOPE.d("自定义的作用域日志  测试！！！")
             }
         }

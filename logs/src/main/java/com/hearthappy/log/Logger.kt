@@ -24,9 +24,15 @@ import java.io.File
  *   Logger.IMPORTANT.e("重要错误日志", Throwable("异常"))
  *   Logger.KERNEL.i("核心日志")
  *   Logger.ERROR.w("错误域警告日志") // 新增的Error域
+ *   支持：
+ *   1、拦截器：拦截日志，自定义写入方式
+ *   2、查询日志：支持高级查询、智能去重查询
+ *   3、删除指定Scope的所有数据，删除旧数据
+ *   4、自动清理日志：支持按时间清理和按文件大小清理
  */
 class Logger {
     companion object {
+        internal const val TAG = "Logger"
         //字段常量
         const val COLUMN_ID = "id"
         const val COLUMN_TIME = "time"
@@ -53,8 +59,6 @@ class Logger {
         }
 
 
-
-
         /**
          * 全局初始化（Application中调用）
          */
@@ -62,6 +66,8 @@ class Logger {
             ContextHolder.init(context as Application)
             LogFileManager.init(outputConfig.fileConfig)
             LogOutputterManager.initDefaultOutputters(outputConfig)
+
+
         }
 
         fun getScopes(): List<String> {
@@ -78,11 +84,32 @@ class Logger {
          */
         fun clear() {
             LogFileManager.clearAll()
-            LogDbManager.getInstance(ContextHolder.getAppContext()).clearAllLogs()
+            LogDbManager.clearAllLogs()
         }
 
         fun getAllFiles(): List<File>? {
             return LogFileManager.getAllFiles()
+        }
+
+        fun getDbFileSize(): Double {
+            return LogDbManager.getDbFileSize()
+        }
+
+        /**
+         * 开启数据库日志自动清理功能
+         * @param retentionDays 保留天数，超过该天数的数据将被清理
+         */
+        fun enableAutoClean(retentionDays: Int) {
+            LogDbManager.startAutoCleanByDate(retentionDays)
+        }
+
+        /**
+         * 开启数据库日志自动清理功能（按文件大小）
+         * @param maxSizeMb 数据库文件最大允许大小 (MB)
+         * @param cleanSizeMb 每次清理尝试减少的大小 (MB)
+         */
+        fun enableAutoClean(maxSizeMb: Double, cleanSizeMb: Double) {
+            LogDbManager.startAutoCleanBySize(maxSizeMb, cleanSizeMb)
         }
 
     }

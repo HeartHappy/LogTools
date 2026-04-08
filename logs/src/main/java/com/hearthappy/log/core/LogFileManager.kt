@@ -3,6 +3,7 @@ package com.hearthappy.log.core
 import android.app.Application
 import android.os.Environment
 import android.util.Log
+import com.hearthappy.log.Logger
 import java.io.File
 import java.util.regex.Pattern
 
@@ -10,7 +11,7 @@ import java.util.regex.Pattern
  * 日志文件管理器：单例管理所有Scope的输出器，统一初始化，支持扩展
  */
 internal object LogFileManager {
-    const val TAG = "Logger"
+
     private var diskPath: String? = null
 
 
@@ -38,8 +39,8 @@ internal object LogFileManager {
         val map = File(folder).listFiles()?.mapNotNull { if (it.name.contains(scope)) it else null }
         map?.forEachIndexed { _, file ->
             results.add(file.delete())
-            Log.i(TAG, "Successfully deleted the $scope scope.")
-        } ?: Log.i(TAG, "Failed to delete $scope file; relevant file not found.")
+            Log.i(Logger.TAG, "Successfully deleted the $scope scope.")
+        } ?: Log.i(Logger.TAG, "Failed to delete $scope file; relevant file not found.")
         val find = results.find { !it }
         return find ?: true
     }
@@ -101,11 +102,11 @@ internal object LogFileManager {
                 val oldestFile = sortedFiles.first()
                 if (oldestFile.exists()) {
                     oldestFile.delete()
-                    Log.i(TAG, "删除最旧的单个日志文件：${oldestFile.name}")
+                    Log.i(Logger.TAG, "删除最旧的单个日志文件：${oldestFile.name}")
                     return true
                 }
             } else {
-                Log.i(TAG, "当前仅保留1个日志文件，${scope} 不执行删除")
+                Log.i(Logger.TAG, "当前仅保留1个日志文件，${scope} 不执行删除")
             }
             return false
         }

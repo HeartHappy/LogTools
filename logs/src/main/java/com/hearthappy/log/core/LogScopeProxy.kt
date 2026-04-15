@@ -1,8 +1,6 @@
 package com.hearthappy.log.core
 
 import com.hearthappy.log.db.LogDbManager
-import com.hearthappy.log.utils.LogExportUtil
-import com.hearthappy.log.utils.LogShareUtil
 import java.io.File
 
 /**
@@ -72,7 +70,7 @@ class LogScopeProxy(private val scope: String): LogScope {
         return LogDbManager.clearAllLogs()
     }
     // 2. 导出并分享
-    fun doExportAndShare(scope: String, exportAll: Boolean = false, limit: Int = 1000) {
+    fun doExportAndShare(exportAll: Boolean = false, limit: Int = 1000, onProgress: ((Int) -> Unit)? = null) {
         // 异步查询并导出，避免 UI 卡顿
         Thread {
             val logs = if (exportAll) {
@@ -80,10 +78,10 @@ class LogScopeProxy(private val scope: String): LogScope {
             } else {
                 LogDbManager.queryLogsAdvanced(scope, limit = limit)
             }
-            val file = LogExportUtil.exportToCsv(ContextHolder.getAppContext(), scope, logs)
+            val file = LogExportManager.exportToCsv(ContextHolder.getAppContext(), scope, logs, onProgress)
 
             file?.let {
-                LogShareUtil.shareLogFile(ContextHolder.getAppContext(), it)
+                LogShareManager.shareLogFile(ContextHolder.getAppContext(), it)
             }
         }.start()
     }

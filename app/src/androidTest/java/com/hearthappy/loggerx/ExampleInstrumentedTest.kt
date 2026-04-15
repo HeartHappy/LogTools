@@ -1,4 +1,4 @@
-package com.hearthappy.logtools
+package com.hearthappy.loggerx
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

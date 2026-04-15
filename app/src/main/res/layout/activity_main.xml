@@ -61,4 +61,16 @@
         android:text="数据库查询"
         app:layout_constraintTop_toBottomOf="@+id/button4"
         android:layout_height="wrap_content"/>
+
+    <Button
+        android:id="@+id/button6"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.502"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_width="wrap_content"
+        android:onClick="shareFile"
+        android:text="分享"
+        app:layout_constraintTop_toBottomOf="@+id/button5"
+        android:layout_height="wrap_content"/>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

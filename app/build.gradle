@@ -8,9 +8,8 @@ plugins {
 
 android {
 
-    namespace 'com.hearthappy.logtools'
+    namespace 'com.hearthappy.loggerx'
     compileSdk 31
-
     defaultConfig {
         minSdk 23
         versionCode 1

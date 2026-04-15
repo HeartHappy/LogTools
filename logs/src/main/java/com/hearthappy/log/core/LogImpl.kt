@@ -6,7 +6,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.hearthappy.log.Logger
+import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.LogFileManager.getDiskPath
 import com.hearthappy.log.db.LogDbManager
 import com.hearthappy.log.interceptor.LogInterceptor
@@ -171,7 +171,7 @@ internal class LogImpl(private var scope: LogScope, private val interceptor: Log
     }
 
     private fun formatTag(tag: String?): String {
-        return tag?.run { this } ?: Logger.TAG
+        return tag?.run { this } ?: LoggerX.TAG
     }
 
     private fun createMessage(message: String, vararg args: Any): String {

@@ -3,7 +3,7 @@ package com.hearthappy.log.db
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import com.hearthappy.log.Logger
+import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.ContextHolder
 
 
@@ -28,12 +28,12 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
     fun createLogTable(db: SQLiteDatabase, tableName: String) {
         val sql = """
             CREATE TABLE IF NOT EXISTS $tableName (
-                ${Logger.COLUMN_ID } INTEGER PRIMARY KEY AUTOINCREMENT,
-                ${Logger.COLUMN_TIME} TIMESTAMP DEFAULT (datetime('now', 'localtime')),
-                ${Logger.COLUMN_LEVEL} TEXT,
-                ${Logger.COLUMN_TAG} TEXT,
-                ${Logger.COLUMN_METHOD} TEXT,
-                ${Logger.COLUMN_MESSAGE} TEXT
+                ${LoggerX.COLUMN_ID } INTEGER PRIMARY KEY AUTOINCREMENT,
+                ${LoggerX.COLUMN_TIME} TIMESTAMP DEFAULT (datetime('now', 'localtime')),
+                ${LoggerX.COLUMN_LEVEL} TEXT,
+                ${LoggerX.COLUMN_TAG} TEXT,
+                ${LoggerX.COLUMN_METHOD} TEXT,
+                ${LoggerX.COLUMN_MESSAGE} TEXT
             )
         """.trimIndent()
         db.execSQL(sql)

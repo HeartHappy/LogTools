@@ -1,4 +1,4 @@
-package com.hearthappy.logtools.preview
+package com.hearthappy.loggerx.preview
 
 import android.content.Context
 import android.util.AttributeSet

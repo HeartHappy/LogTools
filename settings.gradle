@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 enableFeaturePreview('VERSION_CATALOGS')
-rootProject.name = "LogTools"
+rootProject.name = "LoggerX"
 include ':app'
 include ':logs'

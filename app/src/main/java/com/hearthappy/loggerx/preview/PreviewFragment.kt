@@ -1,4 +1,4 @@
-package com.hearthappy.logtools.preview
+package com.hearthappy.loggerx.preview
 
 import android.os.Bundle
 import android.view.View
@@ -8,17 +8,16 @@ import com.hearthappy.basic.AbsBaseFragment
 import com.hearthappy.basic.ext.addLastListener
 import com.hearthappy.basic.ext.dp2px
 import com.hearthappy.basic.ext.popupWindow
-import com.hearthappy.log.Logger
+import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.LogOutputter
 import com.hearthappy.log.core.LogScopeProxy
-import com.hearthappy.logtools.databinding.FragmentPreviewBinding
-import com.hearthappy.logtools.databinding.PopFilterListBinding
-import kotlin.math.log
+import com.hearthappy.loggerx.databinding.FragmentPreviewBinding
+import com.hearthappy.loggerx.databinding.PopFilterListBinding
 
 class PreviewFragment: AbsBaseFragment<FragmentPreviewBinding>() {
 
-    lateinit var scopeProxy: LogScopeProxy
-    var page:Int=1
+    private lateinit var scopeProxy: LogScopeProxy
+    private var page:Int=1
     override fun FragmentPreviewBinding.initData() {
     }
 
@@ -33,15 +32,14 @@ class PreviewFragment: AbsBaseFragment<FragmentPreviewBinding>() {
     }
 
     override fun FragmentPreviewBinding.initView(savedInstanceState: Bundle?) {
-        val title = arguments?.getString("title")
+//        val title = arguments?.getString("title")
         val index = arguments?.getInt("index") ?: 0
         viewBinding.apply {
-            val outputter: LogOutputter = Logger.getOutputters()[index]
+            val outputter: LogOutputter = LoggerX.getOutputters()[index]
             scopeProxy = outputter.scope.getProxy()
             val logAdapter = LogAdapter(scopeProxy)
-            tvTitle.text = title
             rvLogList.adapter = logAdapter
-            addHeaderListener(logAdapter, scopeProxy, logAdapter)
+//            addHeaderListener(logAdapter, scopeProxy, logAdapter)
             rvLogList.addLastListener {
                 if (logAdapter.getItemRealCount() % 100 == 0) {
                     page++
@@ -53,34 +51,34 @@ class PreviewFragment: AbsBaseFragment<FragmentPreviewBinding>() {
         }
     }
 
-    private fun addHeaderListener(headerView: LogAdapter, scopeProxy: LogScopeProxy, logAdapter: LogAdapter) {
-        headerView.timeListener = {
-            showPopupFilter(it, scopeProxy, Logger.COLUMN_TIME) { time ->
-                val filterTime = scopeProxy.queryLogs(time = time)
-                logAdapter.initData(filterTime)
-            }
-        }
-        headerView.levelListener = {
-            showPopupFilter(it, scopeProxy, Logger.COLUMN_LEVEL) { levels ->
-                val filterLevel = scopeProxy.queryLogs(level = levels)
-                logAdapter.initData(filterLevel)
-            }
-        }
-
-        headerView.tagListener = {
-            showPopupFilter(it, scopeProxy, Logger.COLUMN_TAG) { tags ->
-                val filterTag = scopeProxy.queryLogs(tag = tags)
-                logAdapter.initData(filterTag)
-            }
-        }
-
-        headerView.methodListener = {
-            showPopupFilter(it, scopeProxy, Logger.COLUMN_METHOD) { methods ->
-                val filterMethod = scopeProxy.queryLogs(method = methods)
-                logAdapter.initData(filterMethod)
-            }
-        }
-    }
+//    private fun addHeaderListener(headerView: LogAdapter, scopeProxy: LogScopeProxy, logAdapter: LogAdapter) {
+//        headerView.timeListener = {
+//            showPopupFilter(it, scopeProxy, LoggerX.COLUMN_TIME) { time ->
+//                val filterTime = scopeProxy.queryLogs(time = time)
+//                logAdapter.initData(filterTime)
+//            }
+//        }
+//        headerView.levelListener = {
+//            showPopupFilter(it, scopeProxy, LoggerX.COLUMN_LEVEL) { levels ->
+//                val filterLevel = scopeProxy.queryLogs(level = levels)
+//                logAdapter.initData(filterLevel)
+//            }
+//        }
+//
+//        headerView.tagListener = {
+//            showPopupFilter(it, scopeProxy, LoggerX.COLUMN_TAG) { tags ->
+//                val filterTag = scopeProxy.queryLogs(tag = tags)
+//                logAdapter.initData(filterTag)
+//            }
+//        }
+//
+//        headerView.methodListener = {
+//            showPopupFilter(it, scopeProxy, LoggerX.COLUMN_METHOD) { methods ->
+//                val filterMethod = scopeProxy.queryLogs(method = methods)
+//                logAdapter.initData(filterMethod)
+//            }
+//        }
+//    }
 
     override fun FragmentPreviewBinding.initViewModelListener() {
     }

@@ -1,4 +1,4 @@
-package com.hearthappy.logtools
+package com.hearthappy.loggerx
 
 import android.app.Activity
 import android.content.Context

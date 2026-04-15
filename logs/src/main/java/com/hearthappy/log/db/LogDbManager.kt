@@ -2,13 +2,13 @@ package com.hearthappy.log.db
 
 import android.database.sqlite.SQLiteStatement
 import android.util.Log
-import com.hearthappy.log.Logger
-import com.hearthappy.log.Logger.Companion.COLUMN_ID
-import com.hearthappy.log.Logger.Companion.COLUMN_LEVEL
-import com.hearthappy.log.Logger.Companion.COLUMN_MESSAGE
-import com.hearthappy.log.Logger.Companion.COLUMN_METHOD
-import com.hearthappy.log.Logger.Companion.COLUMN_TAG
-import com.hearthappy.log.Logger.Companion.COLUMN_TIME
+import com.hearthappy.log.LoggerX
+import com.hearthappy.log.LoggerX.Companion.COLUMN_ID
+import com.hearthappy.log.LoggerX.Companion.COLUMN_LEVEL
+import com.hearthappy.log.LoggerX.Companion.COLUMN_MESSAGE
+import com.hearthappy.log.LoggerX.Companion.COLUMN_METHOD
+import com.hearthappy.log.LoggerX.Companion.COLUMN_TAG
+import com.hearthappy.log.LoggerX.Companion.COLUMN_TIME
 import com.hearthappy.log.core.ContextHolder
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -59,7 +59,7 @@ object LogDbManager {
             stmt.bindString(4, message)
             stmt.executeInsert()
         } catch (e: Exception) {
-            Log.e(Logger.TAG, "Insert failed: ${e.message}")
+            Log.e(LoggerX.TAG, "Insert failed: ${e.message}")
         }
     }
 
@@ -188,7 +188,7 @@ object LogDbManager {
             }
             return true
         } catch (e: Exception) {
-            Log.e(Logger.TAG, "clearAllLogs: ${e.message}")
+            Log.e(LoggerX.TAG, "clearAllLogs: ${e.message}")
             e.printStackTrace()
             return false
         }
@@ -213,7 +213,7 @@ object LogDbManager {
             try {
                 performCleanupByDateRange(retentionDays)
             } catch (e: Exception) {
-                Log.e(Logger.TAG, "Auto clean by date failed: ${e.message}")
+                Log.e(LoggerX.TAG, "Auto clean by date failed: ${e.message}")
             }
         }, 0, 24, TimeUnit.HOURS)
     }
@@ -241,7 +241,7 @@ object LogDbManager {
                 // 3. 删除该日期及其之前的所有数据
                 // 使用 substr(time, 1, 10) <= ? 来确保删除包含 cutoffDate 在内的所有数据
                 val rows = database.delete(tableName, "substr($COLUMN_TIME, 1, 10) <= ?", arrayOf(cutoffDate))
-                Log.d(Logger.TAG, "Auto clean by date for $tableName: deleted $rows rows on or before $cutoffDate. Total dates: ${distinctDates.size}, retention: $days")
+                Log.d(LoggerX.TAG, "Auto clean by date for $tableName: deleted $rows rows on or before $cutoffDate. Total dates: ${distinctDates.size}, retention: $days")
             }
         }
     }
@@ -262,7 +262,7 @@ object LogDbManager {
             try {
                 performCleanupBySize(maxSizeMb, cleanSizeMb)
             } catch (e: Exception) {
-                Log.e(Logger.TAG, "Auto clean by size failed: ${e.message}")
+                Log.e(LoggerX.TAG, "Auto clean by size failed: ${e.message}")
             }
         }, 0, 24, TimeUnit.HOURS)
     }
@@ -272,10 +272,10 @@ object LogDbManager {
         if (!dbFile.exists()) return
 
         var currentSizeMb = dbFile.length().toDouble() / (1024.0 * 1024.0)
-        Log.d(Logger.TAG, "Current DB size: $currentSizeMb MB, Max size: $maxSizeMb MB")
+        Log.d(LoggerX.TAG, "Current DB size: $currentSizeMb MB, Max size: $maxSizeMb MB")
 
         if (currentSizeMb > maxSizeMb) {
-            Log.d(Logger.TAG, "DB size exceeds limit, starting cleanup...")
+            Log.d(LoggerX.TAG, "DB size exceeds limit, starting cleanup...")
             val targetSizeMb = maxSizeMb - cleanSizeMb // 目标大小，尝试清理到这个大小以下
 
             var cleanedTotalRows = 0
@@ -295,12 +295,12 @@ object LogDbManager {
 
                 // 重新获取文件大小
                 currentSizeMb = dbFile.length().toDouble() / (1024.0 * 1024.0)
-                Log.d(Logger.TAG, "Iteration $iteration: Deleted $rowsDeletedInIteration rows. New DB size: $currentSizeMb MB")
+                Log.d(LoggerX.TAG, "Iteration $iteration: Deleted $rowsDeletedInIteration rows. New DB size: $currentSizeMb MB")
 
                 // 如果文件大小没有明显变化，可能需要 VACUUM，但这里避免使用
                 // 实际文件大小可能不会立即减少，但逻辑上旧数据已被删除
             }
-            Log.d(Logger.TAG, "Auto clean by size finished. Total rows deleted: $cleanedTotalRows. Final DB size: $currentSizeMb MB")
+            Log.d(LoggerX.TAG, "Auto clean by size finished. Total rows deleted: $cleanedTotalRows. Final DB size: $currentSizeMb MB")
         }
     }
 

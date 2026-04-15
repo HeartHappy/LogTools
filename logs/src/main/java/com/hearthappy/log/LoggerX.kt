@@ -3,6 +3,7 @@ package com.hearthappy.log
 import android.app.Application
 import android.content.Context
 import com.hearthappy.log.core.ContextHolder
+import com.hearthappy.log.core.LogExportManager
 import com.hearthappy.log.core.LogFileManager
 import com.hearthappy.log.core.LogOutputter
 import com.hearthappy.log.core.LogOutputterManager
@@ -20,19 +21,20 @@ import java.io.File
  * ClassDescription： 日志框架
  *   极简日志调用入口（对外暴露）
  *   用法：
- *   Logger.COMMON.d("普通日志")
- *   Logger.IMPORTANT.e("重要错误日志", Throwable("异常"))
- *   Logger.KERNEL.i("核心日志")
- *   Logger.ERROR.w("错误域警告日志") // 新增的Error域
+ *   LoggerX.COMMON.d("普通日志")
+ *   LoggerX.IMPORTANT.e("重要错误日志", Throwable("异常"))
+ *   LoggerX.KERNEL.i("核心日志")
+ *   LoggerX.ERROR.w("错误域警告日志") // 新增的Error域
  *   支持：
  *   1、拦截器：拦截日志，自定义写入方式
  *   2、查询日志：支持高级查询、智能去重查询
  *   3、删除指定Scope的所有数据，删除旧数据
  *   4、自动清理日志：支持按时间清理和按文件大小清理
  */
-class Logger {
+class LoggerX {
     companion object {
-        internal const val TAG = "Logger"
+        internal const val TAG = "LoggerX"
+
         //字段常量
         const val COLUMN_ID = "id"
         const val COLUMN_TIME = "time"
@@ -89,6 +91,16 @@ class Logger {
 
         fun getAllFiles(): List<File>? {
             return LogFileManager.getAllFiles()
+        }
+
+        /**
+         * 导出并分享所有作用域的日志文件
+         * @param exportAll 是否导出所有记录（true：不限制数量，false：按 limit 导出）
+         * @param limit 每个作用域导出的条数限制（仅在 exportAll 为 false 时生效）
+         * @param onProgress 总体导出进度回调 (0..100)
+         */
+        fun exportAndShareAll(exportAll: Boolean = true, limit: Int = 1000, onProgress: ((Int) -> Unit)? = null) {
+            LogExportManager.exportAll(exportAll, limit, onProgress)
         }
 
         fun getDbFileSize(): Double {

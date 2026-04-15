@@ -1,4 +1,4 @@
-package com.hearthappy.logtools
+package com.hearthappy.loggerx
 
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -10,10 +10,11 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
-import com.hearthappy.log.Logger
-import com.hearthappy.logtools.preview.PreviewActivity
+import com.hearthappy.log.LoggerX
+import com.hearthappy.loggerx.preview.PreviewActivity
 import com.hjq.permissions.Permission
 import com.hjq.permissions.XXPermissions
+import org.json.JSONObject
 import java.util.Random
 
 class MainActivity: AppCompatActivity() {
@@ -31,7 +32,7 @@ class MainActivity: AppCompatActivity() {
                 else -> "V"
             }
             val message = "测试日志消息 $logCount - ${System.currentTimeMillis()}"
-            Logger.COMMON.i("testMethod:$message")
+            LoggerX.COMMON.i("testMethod:$message")
             logCount++
             if (logCount % 100 == 0) {
                 Log.d(TAG, "Inserted $logCount logs.")
@@ -47,7 +48,7 @@ class MainActivity: AppCompatActivity() {
         // 启动循环插入日志
 //        handler.post(logRunnable)
 
-        val dbFileSize = Logger.getDbFileSize()
+        val dbFileSize = LoggerX.getDbFileSize()
         Log.i(TAG, "onCreate: $dbFileSize")
     }
 
@@ -66,37 +67,42 @@ class MainActivity: AppCompatActivity() {
         XXPermissions.with(this@MainActivity).permission(Permission.WRITE_EXTERNAL_STORAGE).request { permissions, all ->
 
             if (all) {
-                Logger.COMMON.d("common test")
-                Logger.COMMON.d("common onCreate d")
-                Logger.COMMON.i("common onCreate i")
-                Logger.COMMON.w("common onCreate w")
+                LoggerX.COMMON.d("common test")
+                LoggerX.COMMON.d("common onCreate d")
+                LoggerX.COMMON.i("common onCreate i")
+                LoggerX.COMMON.w("common onCreate w")
 
-                Logger.IMPORTANT.d("important onCreate d 挺不错的，哈哈")
+                LoggerX.IMPORTANT.d("important onCreate d 挺不错的，哈哈")
 
-                Logger.KERNEL.d("kernel onCreate d")
-                Logger.KERNEL.w("kernel onResume w")
-                Logger.KERNEL.i("kernel onCreate1 i")
-                Logger.KERNEL.v("kernel onCreate3 v")
-                Logger.ERROR.e("kernel onCreate2 e", Throwable("runtime error"))
-                Logger.KERNEL.i("${Logger.KERNEL.getDirectory()}")
-                Logger.COMMON.json("")
+                LoggerX.KERNEL.d("kernel onCreate d")
+                LoggerX.KERNEL.w("kernel onResume w")
+                LoggerX.KERNEL.i("kernel onCreate1 i")
+                LoggerX.KERNEL.v("kernel onCreate3 v")
+                LoggerX.ERROR.e("kernel onCreate2 e", Throwable("runtime error"))
+                LoggerX.KERNEL.i("${LoggerX.KERNEL.getDirectory()}")
+                val jSONObject = JSONObject().apply {
+                    put("name", "张三")
+                    put("age", 18)
+                    put("sex", "男")
+                }
+                LoggerX.COMMON.json(jSONObject.toString())
                 MyApp.CUSTOM_SCOPE.d("自定义的作用域日志  测试！！！")
             }
         }
     }
 
     fun deleteLogFile(view: View) {
-        Logger.KERNEL.deleteOldestSingleFile()
-        Logger.COMMON.clearAllFiles()
+        LoggerX.KERNEL.deleteOldestSingleFile()
+        LoggerX.COMMON.clearAllFiles()
     }
 
     fun deleteAllLogFile(view: View) {
-        val clearAll = Logger.clear()
+        val clearAll = LoggerX.clear()
         Log.d(TAG, "deleteAllLogFile: $clearAll")
     }
 
     fun openFile(view: View) {
-        val csvFile = Logger.KERNEL.getListFiles()?.last() // 2. 打开CSV文件的核心方法
+        val csvFile = LoggerX.KERNEL.getListFiles()?.last() // 2. 打开CSV文件的核心方法
         csvFile?.let { file ->
             try { // 生成Content URI（适配Android 7.0+）
                 val fileUri = FileProvider.getUriForFile(applicationContext, "${applicationContext.packageName}.fileprovider", file)
@@ -127,12 +133,17 @@ class MainActivity: AppCompatActivity() {
     }
 
     fun queryDBLogs(view: View) {
-
-        val distinctValues = Logger.IMPORTANT.getDistinctValues(Logger.COLUMN_METHOD)
+        val distinctValues = LoggerX.IMPORTANT.getDistinctValues(LoggerX.COLUMN_METHOD)
         Log.i(TAG, "queryDBLogs: ${distinctValues.toList()}")
-        val queryLogs = Logger.IMPORTANT.queryLogs(isAsc = false)
+        val queryLogs = LoggerX.IMPORTANT.queryLogs(isAsc = false)
         Log.i("PreviewActivity", "onCreate: ${queryLogs.toList().joinToString { "$it\n" }}")
         startActivity(Intent(this, PreviewActivity::class.java))
+    }
+
+    fun shareFile(view: View) {
+        LoggerX.exportAndShareAll {
+            Log.i(TAG, "shareFile: $it")
+        }
     }
 
 }

@@ -6,7 +6,7 @@
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.hearthappy.logtools.fileprovider"
+            android:authorities="com.hearthappy.loggerx.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

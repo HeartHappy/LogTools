@@ -1,41 +1,78 @@
 <?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_gray_r8"
+    android:paddingHorizontal="8dp"
+    android:layout_marginVertical="4dp"
+    android:layout_marginHorizontal="8dp"
+    android:paddingVertical="4dp">
 
 
-    <LinearLayout
-        xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:tools="http://schemas.android.com/tools"
+    <TextView
+        android:id="@+id/tvTagTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:text="TAG:"
+        android:textColor="@color/white"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
+    <TextView
+        android:id="@+id/tvTag"
+        style="@style/style_item_text"
+        android:layout_width="wrap_content"
+        app:layout_constraintStart_toEndOf="@+id/tvTagTitle"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="MainActivity" />
 
-        <TextView
-            android:id="@+id/tvTime"
-            android:layout_width="140dp"
-            tools:text="2026-03-20 16:45:46"
-            style="@style/style_item_text" />
+    <TextView
+        android:id="@+id/tvTime"
+        style="@style/style_item_text"
+        android:layout_width="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="2026-03-20 16:45:46" />
 
-        <TextView
-            android:id="@+id/tvLevel"
-            android:layout_width="80dp"
-            style="@style/style_item_text"
-            tools:text="DEBUG" />
+    <TextView
+        android:id="@+id/tvLevel"
+        style="@style/style_item_text"
+        android:layout_width="wrap_content"
+        app:layout_constraintStart_toEndOf="@+id/tvTag"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="DEBUG" />
 
-        <TextView
-            android:id="@+id/tvTag"
-            android:layout_width="120dp"
-            style="@style/style_item_text"
-            tools:text="MainActivity" />
-
-        <TextView
-            android:id="@+id/tvMethod"
-            android:layout_width="200dp"
-            style="@style/style_item_text"
-            tools:text="outLogAndFile$lambda$0(36)" />
-
-        <TextView
-            android:id="@+id/tvMessage"
-            android:layout_width="wrap_content"
-            style="@style/style_item_text"
-            tools:text="important onCreate d 挺不错的，哈哈" />
-    </LinearLayout>
+    <TextView
+        android:id="@+id/tvMethodTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="METHOD:"
+        android:textColor="@color/white"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvTagTitle" />
+    <TextView
+        android:id="@+id/tvMethod"
+        style="@style/style_item_text"
+        android:layout_width="0dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/tvMethodTitle"
+        app:layout_constraintTop_toBottomOf="@+id/tvTime"
+        tools:text="outLogAndFile$lambda$0(36)" />
+    <TextView
+        android:id="@+id/tvMessageTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="MESSAGE:"
+        android:textColor="@color/white"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvMethod" />
+    <TextView
+        android:id="@+id/tvMessage"
+        style="@style/style_item_text"
+        android:layout_width="wrap_content"
+        app:layout_constraintStart_toStartOf="@+id/tvMessageTitle"
+        app:layout_constraintTop_toBottomOf="@+id/tvMessageTitle"
+        tools:text="important onCreate d 挺不错的，哈哈" />
+</androidx.constraintlayout.widget.ConstraintLayout>

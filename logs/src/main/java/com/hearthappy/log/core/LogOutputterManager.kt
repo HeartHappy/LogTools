@@ -1,6 +1,6 @@
 package com.hearthappy.log.core
 
-import com.hearthappy.log.Logger
+import com.hearthappy.log.LoggerX
 import com.hearthappy.log.interceptor.LogInterceptor
 
 internal object LogOutputterManager {
@@ -27,10 +27,10 @@ internal object LogOutputterManager {
             override fun isWriteFile(): Boolean = isWriteFile
             override fun isWriteDatabase(): Boolean = isWriteDatabase
         }
-        outputterMap[Logger.COMMON.getTag()] = LogOutputter(scope = Logger.COMMON, logInterceptorAdapter)
-        outputterMap[Logger.IMPORTANT.getTag()] = LogOutputter(scope = Logger.IMPORTANT, logInterceptorAdapter)
-        outputterMap[Logger.KERNEL.getTag()] = LogOutputter(scope = Logger.KERNEL, logInterceptorAdapter)
-        outputterMap[Logger.ERROR.getTag()] = LogOutputter(scope = Logger.ERROR, logInterceptorAdapter)
+        outputterMap[LoggerX.COMMON.getTag()] = LogOutputter(scope = LoggerX.COMMON, logInterceptorAdapter)
+        outputterMap[LoggerX.IMPORTANT.getTag()] = LogOutputter(scope = LoggerX.IMPORTANT, logInterceptorAdapter)
+        outputterMap[LoggerX.KERNEL.getTag()] = LogOutputter(scope = LoggerX.KERNEL, logInterceptorAdapter)
+        outputterMap[LoggerX.ERROR.getTag()] = LogOutputter(scope = LoggerX.ERROR, logInterceptorAdapter)
     }
 
 

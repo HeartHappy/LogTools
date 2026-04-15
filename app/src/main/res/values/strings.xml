@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">LoggerX</string>
+    <string name="filter_title">筛选</string>
+    <string name="filter_reset">重置</string>
+    <string name="filter_confirm">确认</string>
+    <string name="filter_selected">已选中</string>
+    <string name="filter_all">全部</string>
 </resources>

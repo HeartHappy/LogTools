@@ -7,7 +7,7 @@ import com.hearthappy.basic.ext.addStateAdapter
 import com.hearthappy.log.LoggerX
 import com.hearthappy.loggerx.databinding.ActivityPreviewBinding
 
-class PreviewActivity: AppCompatActivity() {
+class PreviewActivity : AppCompatActivity() {
 
     lateinit var viewBinding: ActivityPreviewBinding
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,7 +22,7 @@ class PreviewActivity: AppCompatActivity() {
             }
 
             vp.addStateAdapter(supportFragmentManager, lifecycle, outputters.size) {
-                PreviewFragment.newInstance(it, outputters[it])
+                PreviewFragment.newInstance(it)
             }
             vp.addListener { tabLayout.getTabAt(it)?.select() }
             tabLayout.addListener(onSelect = {

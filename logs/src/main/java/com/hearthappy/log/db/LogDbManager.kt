@@ -49,17 +49,28 @@ object LogDbManager {
      */
     @Synchronized
     fun insertLog(scopeTag: String, level: String, classTag: String, method: String, message: String) {
-        try {
-            val tableName = getTableName(scopeTag)
-            val stmt = ensureTable(tableName)
-            stmt.clearBindings()
-            stmt.bindString(1, level)
-            stmt.bindString(2, classTag)
-            stmt.bindString(3, method)
-            stmt.bindString(4, message)
-            stmt.executeInsert()
-        } catch (e: Exception) {
-            Log.e(LoggerX.TAG, "Insert failed: ${e.message}")
+        val tableName = getTableName(scopeTag)
+        repeat(2) { attempt ->
+            try {
+                val stmt = ensureTable(tableName)
+                stmt.clearBindings()
+                stmt.bindString(1, level)
+                stmt.bindString(2, classTag)
+                stmt.bindString(3, method)
+                stmt.bindString(4, message)
+                stmt.executeInsert()
+                return
+            } catch (e: Exception) {
+                statementCache.remove(tableName)?.close()
+                existedTables.remove(tableName)
+                try {
+                    dbHelper.createLogTable(database, tableName)
+                } catch (_: Exception) {
+                }
+                if (attempt == 1) {
+                    Log.e(LoggerX.TAG, "Insert failed after retry: ${e.message}")
+                }
+            }
         }
     }
 
@@ -70,6 +81,7 @@ object LogDbManager {
      */
     fun queryLogsAdvanced(scopeTag: String, time: String? = null, tag: String? = null, level: String? = null, method: String? = null, keyword: String? = null, isAsc: Boolean = false, page: Int = 1, limit: Int? = 100): List<Map<String, Any>> {
         val tableName = getTableName(scopeTag)
+        if (!tableExists(tableName)) return emptyList()
         val list = mutableListOf<Map<String, Any>>()
         val selection = StringBuilder()
         val selectionArgs = mutableListOf<String>()
@@ -97,21 +109,26 @@ object LogDbManager {
             limit == null -> null
             else -> "$offset, $limit"
         }
-        val cursor = database.query(
-            tableName,
-            null,
-            if (selection.isEmpty()) null else selection.toString(),
-            if (selectionArgs.isEmpty()) null else selectionArgs.toTypedArray(),
-            null,
-            null,
-            "$COLUMN_TIME $sortOrder",
-            limitClause
-        )
+        try {
+            val cursor = database.query(
+                tableName,
+                null,
+                if (selection.isEmpty()) null else selection.toString(),
+                if (selectionArgs.isEmpty()) null else selectionArgs.toTypedArray(),
+                null,
+                null,
+                "$COLUMN_TIME $sortOrder",
+                limitClause
+            )
 
-        cursor?.use {
-            while (it.moveToNext()) {
-                list.add(cursorToMap(it))
+            cursor?.use {
+                while (it.moveToNext()) {
+                    list.add(cursorToMap(it))
+                }
             }
+        } catch (e: Exception) {
+            Log.e(LoggerX.TAG, "queryLogsAdvanced failed: ${e.message}")
+            return emptyList()
         }
         return list
     }
@@ -123,6 +140,7 @@ object LogDbManager {
      */
     fun getDistinctValues(scopeTag: String, columnName: String): List<String> {
         val tableName = getTableName(scopeTag)
+        if (!tableExists(tableName)) return emptyList()
         val result = mutableListOf<String>()
 
         // 动态构建针对不同字段的清洗 SQL
@@ -151,12 +169,17 @@ object LogDbManager {
             else -> "SELECT DISTINCT $columnName FROM $tableName"
         }
 
-        val cursor = database.rawQuery(sql, null)
-        cursor?.use {
-            while (it.moveToNext()) {
-                val value = it.getString(0)
-                if (!value.isNullOrEmpty()) result.add(value)
+        try {
+            val cursor = database.rawQuery(sql, null)
+            cursor?.use {
+                while (it.moveToNext()) {
+                    val value = it.getString(0)
+                    if (!value.isNullOrEmpty()) result.add(value)
+                }
             }
+        } catch (e: Exception) {
+            Log.e(LoggerX.TAG, "getDistinctValues failed: ${e.message}")
+            return emptyList()
         }
         return result
     }
@@ -325,5 +348,23 @@ object LogDbManager {
         return mapOf(COLUMN_ID to it.getInt(it.getColumnIndexOrThrow(COLUMN_ID)), COLUMN_TIME to it.getString(it.getColumnIndexOrThrow(COLUMN_TIME)), COLUMN_LEVEL to it.getString(it.getColumnIndexOrThrow(COLUMN_LEVEL)), COLUMN_TAG to it.getString(it.getColumnIndexOrThrow(COLUMN_TAG)), COLUMN_METHOD to it.getString(it.getColumnIndexOrThrow(COLUMN_METHOD)), COLUMN_MESSAGE to it.getString(it.getColumnIndexOrThrow(COLUMN_MESSAGE)))
     }
 
+    private fun tableExists(tableName: String): Boolean {
+        if (existedTables.contains(tableName)) return true
+        return try {
+            val cursor = database.rawQuery(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
+                arrayOf(tableName)
+            )
+            val exists = cursor.use {
+                it.moveToFirst() && it.getInt(0) > 0
+            }
+            if (exists) {
+                existedTables.add(tableName)
+            }
+            exists
+        } catch (_: Exception) {
+            false
+        }
+    }
 
 }

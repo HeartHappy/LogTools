@@ -2,4 +2,6 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="filter_text_selected">#FF33B5E5</color>
+    <color name="filter_text_normal">#FFB0B0B0</color>
 </resources>

@@ -33,10 +33,27 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
                 ${LoggerX.COLUMN_LEVEL} TEXT,
                 ${LoggerX.COLUMN_TAG} TEXT,
                 ${LoggerX.COLUMN_METHOD} TEXT,
-                ${LoggerX.COLUMN_MESSAGE} TEXT
+                ${LoggerX.COLUMN_MESSAGE} TEXT,
+                ${LoggerX.COLUMN_IS_IMAGE} INTEGER DEFAULT 0,
+                ${LoggerX.COLUMN_MIME_TYPE} TEXT,
+                ${LoggerX.COLUMN_THUMBNAIL} TEXT,
+                ${LoggerX.COLUMN_IMAGE_PAYLOAD} TEXT,
+                ${LoggerX.COLUMN_IMAGE_CHUNKED} INTEGER DEFAULT 0
             )
         """.trimIndent()
         db.execSQL(sql)
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_time_image ON $tableName(${LoggerX.COLUMN_TIME}, ${LoggerX.COLUMN_IS_IMAGE})")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS ${tableName}_img_chunk (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                log_id INTEGER NOT NULL,
+                chunk_index INTEGER NOT NULL,
+                chunk_data TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_img_chunk ON ${tableName}_img_chunk(log_id, chunk_index)")
     }
     /**
      * 获取日志数据库文件的大小（单位：MB）
@@ -49,6 +66,6 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
     }
     companion object {
         const val DB_NAME = "hearthappy_logs.db"
-        const val DB_VERSION = 1
+        const val DB_VERSION = 2
     }
 }

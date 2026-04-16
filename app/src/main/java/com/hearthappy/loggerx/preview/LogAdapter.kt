@@ -2,6 +2,7 @@ package com.hearthappy.loggerx.preview
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -10,31 +11,40 @@ import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.LogLevel
 import com.hearthappy.loggerx.databinding.ItemLogListBinding
 
-class LogAdapter : ListAdapter<Map<String, Any>, LogAdapter.LogViewHolder>(LogDiffCallback) {
+class LogAdapter(private val onImageClick: (Int) -> Unit = {}): ListAdapter<Map<String, Any>, LogAdapter.LogViewHolder>(LogDiffCallback) {
 
-    var isSimplified=false
+    var isSimplified = false
+
+    init {
+        setHasStableIds(true)
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LogViewHolder {
         val binding = ItemLogListBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return LogViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: LogViewHolder, position: Int) {
-        holder.bind(getItem(position),isSimplified)
+        holder.bind(getItem(position), onImageClick, isSimplified)
     }
 
-    fun submitLogs(logs: List<Map<String, Any>>) {
-        // ListAdapter 内置 DiffUtil，数据量较大时可增量刷新避免全量闪烁
+    override fun getItemId(position: Int): Long {
+        return getItem(position)[LoggerX.COLUMN_ID]?.toString()?.toLongOrNull() ?: RecyclerView.NO_ID
+    }
+
+    fun submitLogs(logs: List<Map<String, Any>>) { // ListAdapter 内置 DiffUtil，数据量较大时可增量刷新避免全量闪烁
         submitList(logs.toList())
     }
 
-    class LogViewHolder(private val binding: ItemLogListBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(data: Map<String, Any>, isSimplified: Boolean) = with(binding) {
+    class LogViewHolder(private val binding: ItemLogListBinding): RecyclerView.ViewHolder(binding.root) {
+        fun bind(data: Map<String, Any>, onImageClick: (Int) -> Unit, isSimplified: Boolean) = with(binding) {
             tvTime.text = data[LoggerX.COLUMN_TIME].toString()
             tvLevel.text = data[LoggerX.COLUMN_LEVEL].toString()
             level2Color(data[LoggerX.COLUMN_LEVEL].toString())
             tvTag.text = data[LoggerX.COLUMN_TAG].toString()
             tvMethod.text = data[LoggerX.COLUMN_METHOD].toString()
             tvMessage.text = data[LoggerX.COLUMN_MESSAGE].toString()
+
             tvTagTitle.show(!isSimplified)
             tvTag.show(!isSimplified)
             tvTime.show(!isSimplified)
@@ -42,6 +52,14 @@ class LogAdapter : ListAdapter<Map<String, Any>, LogAdapter.LogViewHolder>(LogDi
             tvMethodTitle.show(!isSimplified)
             tvMethod.show(!isSimplified)
             tvMessageTitle.show(!isSimplified)
+
+            val isImage = LogImageUiHelper.isImageLog(data)
+            ivImageThumb.show(isImage, showBlock = {
+                setImageBitmap(LogImageUiHelper.decodeThumbnail(data))
+                setOnClickListener { data[LoggerX.COLUMN_ID]?.toString()?.toIntOrNull()?.let(onImageClick) }
+            }) {
+                setImageDrawable(null)
+            }
         }
 
         private fun ItemLogListBinding.level2Color(level: String) {
@@ -56,7 +74,7 @@ class LogAdapter : ListAdapter<Map<String, Any>, LogAdapter.LogViewHolder>(LogDi
         }
     }
 
-    private object LogDiffCallback : DiffUtil.ItemCallback<Map<String, Any>>() {
+    private object LogDiffCallback: DiffUtil.ItemCallback<Map<String, Any>>() {
         override fun areItemsTheSame(oldItem: Map<String, Any>, newItem: Map<String, Any>): Boolean {
             val oldId = oldItem[LoggerX.COLUMN_ID]?.toString()
             val newId = newItem[LoggerX.COLUMN_ID]?.toString()

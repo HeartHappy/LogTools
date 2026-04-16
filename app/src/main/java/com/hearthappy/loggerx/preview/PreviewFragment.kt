@@ -2,7 +2,6 @@ package com.hearthappy.loggerx.preview
 
 import android.os.Bundle
 import android.os.SystemClock
-import android.transition.SidePropagation
 import android.transition.Slide
 import android.view.Gravity
 import android.view.View
@@ -16,8 +15,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.hearthappy.basic.AbsBaseFragment
-import com.hearthappy.basic.ext.dp2px
 import com.hearthappy.basic.ext.popupWindow
+import com.hearthappy.basic.ext.showAtBottom
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.LogScopeProxy
 import com.hearthappy.loggerx.databinding.FragmentPreviewBinding
@@ -32,8 +31,7 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
     private lateinit var logAdapter: LogAdapter
     private var popupWindow: PopupWindow? = null
     private val popupJobs = mutableListOf<Job>()
-    private var lastChipClickTs: Long = 0L
-    private var lastResetClickTs: Long = 0L
+    private var lastClickTs: Long = 0L
     private var isConfirmed = false
 
     private val viewModel: PreviewViewModel by viewModels {
@@ -47,21 +45,26 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         swipeRefreshLayout.setOnRefreshListener {
             viewModel.refreshAppliedLogs()
         }
+
         btnSimplify.setOnClickListener {
             it.isSelected = !it.isSelected
             logAdapter.isSimplified = it.isSelected
             logAdapter.notifyItemRangeChanged(0, logAdapter.itemCount)
         }
+        btnFilter.setOnClickListener {
+            showFilterPopup(btnFilter)
+        }
     }
 
     override fun FragmentPreviewBinding.initView(savedInstanceState: Bundle?) {
         viewBinding.apply {
-            logAdapter = LogAdapter()
+            logAdapter = LogAdapter { logId ->
+                ImagePreviewDialogFragment.newInstance(outputterIndex, logId)
+                    .show(childFragmentManager, "image_preview")
+            }
             rvLogList.layoutManager = LinearLayoutManager(requireContext())
             rvLogList.adapter = logAdapter
-            btnFilter.setOnClickListener {
-                showFilterPopup(it)
-            }
+            rvLogList.setHasFixedSize(true)
             viewModel.loadInitialLogs()
         }
     }
@@ -89,6 +92,7 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
     private fun showFilterPopup(anchor: View) {
         isConfirmed = false
         viewModel.startFilterEditing()
+
         popupWindow?.dismiss()
         popupWindow = popupWindow(
             viewBinding = PopMultiFilterBinding.inflate(layoutInflater),
@@ -96,7 +100,8 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
             height = ViewGroup.LayoutParams.WRAP_CONTENT,
             viewEventListener = { vb ->
                 setupFilterPopup(vb)
-            }, transition = Slide()
+            },
+            transition = Slide()
         ).apply {
             isOutsideTouchable = true
             isFocusable = true
@@ -110,23 +115,19 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
             }
         }
 
-        popupWindow?.showAtLocation(viewBinding.root, Gravity.BOTTOM, 0, 0)
+        popupWindow?.showAtBottom(viewBinding.root)
     }
 
     private fun setupFilterPopup(vb: PopMultiFilterBinding) {
-        val dimensionAdapter = FilterDimensionRowAdapter { category, value ->
-            if (!passDebounce(true)) return@FilterDimensionRowAdapter
-            if (value == null) {
-                viewModel.clearCategory(category)
-            } else {
-                viewModel.toggleSelection(category, value)
-            }
+        val rowAdapter = FilterDimensionRowAdapter { category, value ->
+            if (!passDebounce()) return@FilterDimensionRowAdapter
+            viewModel.toggleSelection(category, value)
         }
         vb.rvDimensionRows.layoutManager = LinearLayoutManager(requireContext())
-        vb.rvDimensionRows.adapter = dimensionAdapter
+        vb.rvDimensionRows.adapter = rowAdapter
 
         vb.btnReset.setOnClickListener {
-            if (!passDebounce(false)) return@setOnClickListener
+            if (!passDebounce()) return@setOnClickListener
             viewModel.resetDraft()
         }
         vb.btnConfirm.setOnClickListener {
@@ -138,7 +139,7 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         popupJobs += viewLifecycleOwner.lifecycleScope.launch {
             viewModel.distinctValues.collect { state ->
                 vb.pbDistinctLoading.isVisible = state.loading
-                dimensionAdapter.submitState(
+                rowAdapter.submitState(
                     values = state.values,
                     selectedState = viewModel.draftState.value,
                     disabledCategories = state.disabledCategories
@@ -147,7 +148,7 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         }
         popupJobs += viewLifecycleOwner.lifecycleScope.launch {
             viewModel.draftState.collect { draft ->
-                dimensionAdapter.submitState(
+                rowAdapter.submitState(
                     values = viewModel.distinctValues.value.values,
                     selectedState = draft,
                     disabledCategories = viewModel.distinctValues.value.disabledCategories
@@ -156,17 +157,11 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         }
     }
 
-    private fun passDebounce(isCategoryClick: Boolean): Boolean {
+    private fun passDebounce(): Boolean {
         val now = SystemClock.elapsedRealtime()
-        return if (isCategoryClick) {
-            val pass = now - lastChipClickTs >= 300
-            if (pass) lastChipClickTs = now
-            pass
-        } else {
-            val pass = now - lastResetClickTs >= 300
-            if (pass) lastResetClickTs = now
-            pass
-        }
+        val pass = now - lastClickTs >= 250
+        if (pass) lastClickTs = now
+        return pass
     }
 
     companion object {

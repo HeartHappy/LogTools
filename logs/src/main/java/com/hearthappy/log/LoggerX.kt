@@ -42,6 +42,11 @@ class LoggerX {
         const val COLUMN_TAG = "tag"
         const val COLUMN_METHOD = "method"
         const val COLUMN_MESSAGE = "message"
+        const val COLUMN_IS_IMAGE = "is_image"
+        const val COLUMN_MIME_TYPE = "mime_type"
+        const val COLUMN_THUMBNAIL = "thumbnail"
+        const val COLUMN_IMAGE_PAYLOAD = "image_payload"
+        const val COLUMN_IMAGE_CHUNKED = "image_chunked"
 
         // ========== 内置Scope（直接调用） ==========
         val COMMON = LogScopeProxy("Common")

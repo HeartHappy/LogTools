@@ -6,4 +6,11 @@
     <string name="filter_selected">已选中</string>
     <string name="filter_all">全部</string>
     <string name="simplify">精简</string>
+    <string name="preview_image">预览图片</string>
+    <string name="image_preview_title">图片预览</string>
+    <string name="image_zoom_in">放大</string>
+    <string name="image_zoom_out">缩小</string>
+    <string name="image_rotate">旋转</string>
+    <string name="image_download">下载</string>
+    <string name="image_close">关闭</string>
 </resources>

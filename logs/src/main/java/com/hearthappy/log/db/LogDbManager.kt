@@ -1,14 +1,21 @@
 package com.hearthappy.log.db
 
+import android.content.ContentValues
 import android.database.sqlite.SQLiteStatement
 import android.util.Log
 import com.hearthappy.log.LoggerX
+import com.hearthappy.log.LoggerX.Companion.COLUMN_IMAGE_CHUNKED
+import com.hearthappy.log.LoggerX.Companion.COLUMN_IMAGE_PAYLOAD
+import com.hearthappy.log.LoggerX.Companion.COLUMN_IS_IMAGE
 import com.hearthappy.log.LoggerX.Companion.COLUMN_ID
 import com.hearthappy.log.LoggerX.Companion.COLUMN_LEVEL
 import com.hearthappy.log.LoggerX.Companion.COLUMN_MESSAGE
 import com.hearthappy.log.LoggerX.Companion.COLUMN_METHOD
+import com.hearthappy.log.LoggerX.Companion.COLUMN_MIME_TYPE
 import com.hearthappy.log.LoggerX.Companion.COLUMN_TAG
+import com.hearthappy.log.LoggerX.Companion.COLUMN_THUMBNAIL
 import com.hearthappy.log.LoggerX.Companion.COLUMN_TIME
+import com.hearthappy.log.core.ImageLogCodec
 import com.hearthappy.log.core.ContextHolder
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -22,6 +29,7 @@ object LogDbManager {
 
     // 记录已存在的表，减少查询次数
     private val existedTables = HashSet<String>()
+    private val tableColumnsCache = HashMap<String, Set<String>>()
     private val scheduledExecutor = Executors.newSingleThreadScheduledExecutor()
 
     private fun getTableName(scopeTag: String): String { // 过滤非法字符，确保表名合法
@@ -34,6 +42,7 @@ object LogDbManager {
             dbHelper.createLogTable(database, tableName)
             existedTables.add(tableName)
         }
+        ensureTableSchema(tableName)
 
         return statementCache.getOrPut(tableName) {
             database.compileStatement("INSERT INTO $tableName (level, tag, method, message) VALUES (?, ?, ?, ?)")
@@ -74,14 +83,157 @@ object LogDbManager {
         }
     }
 
+    @Synchronized
+    fun insertImageLog(
+        scopeTag: String,
+        level: String,
+        classTag: String,
+        method: String,
+        message: String,
+        mimeType: String,
+        thumbnailBase64: String,
+        payloadBase64: String?,
+        chunked: Boolean,
+        chunks: List<String>
+    ): Boolean {
+        val tableName = getTableName(scopeTag)
+        if (thumbnailBase64.toByteArray(Charsets.UTF_8).size > ImageLogCodec.MAX_TEXT_COLUMN_BYTES) {
+            Log.w(LoggerX.TAG, "Thumbnail exceeds TEXT limit, reject image log")
+            return false
+        }
+        if (!chunked && !payloadBase64.isNullOrEmpty() &&
+            payloadBase64.toByteArray(Charsets.UTF_8).size > ImageLogCodec.MAX_TEXT_COLUMN_BYTES
+        ) {
+            Log.w(LoggerX.TAG, "Image payload exceeds TEXT limit, reject image log")
+            return false
+        }
+        if (chunked && chunks.any { it.toByteArray(Charsets.UTF_8).size > ImageLogCodec.MAX_TEXT_COLUMN_BYTES }) {
+            Log.w(LoggerX.TAG, "Image chunk exceeds TEXT limit, reject image log")
+            return false
+        }
+        try {
+            ensureTable(tableName)
+            database.beginTransaction()
+            val rowId = database.insertOrThrow(tableName, null, ContentValues().apply {
+                put(COLUMN_LEVEL, level)
+                put(COLUMN_TAG, classTag)
+                put(COLUMN_METHOD, method)
+                put(COLUMN_MESSAGE, message)
+                put(COLUMN_IS_IMAGE, 1)
+                put(COLUMN_MIME_TYPE, mimeType)
+                put(COLUMN_THUMBNAIL, thumbnailBase64)
+                put(COLUMN_IMAGE_PAYLOAD, payloadBase64)
+                put(COLUMN_IMAGE_CHUNKED, if (chunked) 1 else 0)
+            })
+            if (chunked && rowId > 0) {
+                val chunkTable = "${tableName}_img_chunk"
+                chunks.forEachIndexed { index, chunk ->
+                    database.insertOrThrow(chunkTable, null, ContentValues().apply {
+                        put("log_id", rowId.toInt())
+                        put("chunk_index", index)
+                        put("chunk_data", chunk)
+                    })
+                }
+            }
+            database.setTransactionSuccessful()
+            return rowId > 0
+        } catch (e: Exception) {
+            Log.e(LoggerX.TAG, "insertImageLog failed: ${e.message}")
+            return false
+        } finally {
+            runCatching { database.endTransaction() }
+        }
+    }
+
+    fun loadImageBase64(scopeTag: String, logId: Int): String? {
+        val tableName = getTableName(scopeTag)
+        if (!tableExists(tableName)) return null
+        ensureTableSchema(tableName)
+        return try {
+            val cursor = database.query(
+                tableName,
+                arrayOf(COLUMN_IMAGE_CHUNKED, COLUMN_IMAGE_PAYLOAD, COLUMN_IS_IMAGE),
+                "$COLUMN_ID = ?",
+                arrayOf(logId.toString()),
+                null,
+                null,
+                null,
+                "1"
+            )
+            cursor.use {
+                if (!it.moveToFirst()) return null
+                if (it.getInt(it.getColumnIndexOrThrow(COLUMN_IS_IMAGE)) != 1) return null
+                val isChunked = it.getInt(it.getColumnIndexOrThrow(COLUMN_IMAGE_CHUNKED)) == 1
+                if (!isChunked) {
+                    return it.getString(it.getColumnIndexOrThrow(COLUMN_IMAGE_PAYLOAD))
+                }
+            }
+            val chunkTable = "${tableName}_img_chunk"
+            val chunkCursor = database.query(
+                chunkTable,
+                arrayOf("chunk_data"),
+                "log_id = ?",
+                arrayOf(logId.toString()),
+                null,
+                null,
+                "chunk_index ASC"
+            )
+            val builder = StringBuilder()
+            chunkCursor.use { c ->
+                while (c.moveToNext()) {
+                    builder.append(c.getString(0).orEmpty())
+                }
+            }
+            builder.toString().ifEmpty { null }
+        } catch (e: Exception) {
+            Log.e(LoggerX.TAG, "loadImageBase64 failed: ${e.message}")
+            null
+        }
+    }
+
+    fun loadImageMimeType(scopeTag: String, logId: Int): String? {
+        val tableName = getTableName(scopeTag)
+        if (!tableExists(tableName)) return null
+        ensureTableSchema(tableName)
+        return try {
+            database.query(
+                tableName,
+                arrayOf(COLUMN_MIME_TYPE),
+                "$COLUMN_ID = ? AND $COLUMN_IS_IMAGE = 1",
+                arrayOf(logId.toString()),
+                null,
+                null,
+                null,
+                "1"
+            ).use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     /**
      * 1. 高级查询：支持 time, tag, level, method, message 的过滤与模糊查询
      * @param time 模糊匹配，可传 "2026-03-20" 或 "2026-03-20 15"
      * @param method 模糊匹配方法名
      */
-    fun queryLogsAdvanced(scopeTag: String, time: String? = null, tag: String? = null, level: String? = null, method: String? = null, keyword: String? = null, isAsc: Boolean = false, page: Int = 1, limit: Int? = 100): List<Map<String, Any>> {
+    fun queryLogsAdvanced(
+        scopeTag: String,
+        time: String? = null,
+        tag: String? = null,
+        level: String? = null,
+        method: String? = null,
+        isImage: Boolean? = null,
+        keyword: String? = null,
+        isAsc: Boolean = false,
+        page: Int = 1,
+        limit: Int? = 100,
+        includeImagePayload: Boolean = false
+    ): List<Map<String, Any>> {
         val tableName = getTableName(scopeTag)
         if (!tableExists(tableName)) return emptyList()
+        ensureTableSchema(tableName)
         val list = mutableListOf<Map<String, Any>>()
         val selection = StringBuilder()
         val selectionArgs = mutableListOf<String>()
@@ -99,6 +251,9 @@ object LogDbManager {
         method?.let {
             addFilter(selection, "$COLUMN_METHOD LIKE ?", "%$it%", selectionArgs)
         } // Message 关键字查询
+        isImage?.let {
+            addFilter(selection, "$COLUMN_IS_IMAGE = ?", if (it) "1" else "0", selectionArgs)
+        }
         keyword?.let {
             addFilter(selection, "$COLUMN_MESSAGE LIKE ?", "%$it%", selectionArgs)
         }
@@ -123,7 +278,7 @@ object LogDbManager {
 
             cursor?.use {
                 while (it.moveToNext()) {
-                    list.add(cursorToMap(it))
+                    list.add(cursorToMap(it, includeImagePayload))
                 }
             }
         } catch (e: Exception) {
@@ -191,9 +346,22 @@ object LogDbManager {
      */
     fun deleteLogs(scopeTag: String, timeFormat: String?): Int {
         val tableName = getTableName(scopeTag)
+        val chunkTable = "${tableName}_img_chunk"
         return timeFormat?.run {
+            val ids = mutableListOf<Int>()
+            database.query(tableName, arrayOf(COLUMN_ID), "$COLUMN_TIME < ?", arrayOf(this), null, null, null)
+                .use { c -> while (c.moveToNext()) ids.add(c.getInt(0)) }
+            if (ids.isNotEmpty()) {
+                ids.chunked(200).forEach { group ->
+                    val placeholders = group.joinToString(",") { "?" }
+                    database.delete(chunkTable, "log_id IN ($placeholders)", group.map { it.toString() }.toTypedArray())
+                }
+            }
             database.delete(tableName, "$COLUMN_TIME < ?", arrayOf(this))
-        } ?: database.delete(tableName, null, null)
+        } ?: run {
+            database.delete(chunkTable, null, null)
+            database.delete(tableName, null, null)
+        }
 
     }
 
@@ -206,6 +374,7 @@ object LogDbManager {
             cursor?.use {
                 while (it.moveToNext()) {
                     val tableName = it.getString(0)
+                    database.delete("${tableName}_img_chunk", null, null)
                     database.delete(tableName, null, null)
                 }
             }
@@ -344,8 +513,36 @@ object LogDbManager {
         args.add(arg)
     }
 
-    private fun cursorToMap(it: android.database.Cursor): Map<String, Any> {
-        return mapOf(COLUMN_ID to it.getInt(it.getColumnIndexOrThrow(COLUMN_ID)), COLUMN_TIME to it.getString(it.getColumnIndexOrThrow(COLUMN_TIME)), COLUMN_LEVEL to it.getString(it.getColumnIndexOrThrow(COLUMN_LEVEL)), COLUMN_TAG to it.getString(it.getColumnIndexOrThrow(COLUMN_TAG)), COLUMN_METHOD to it.getString(it.getColumnIndexOrThrow(COLUMN_METHOD)), COLUMN_MESSAGE to it.getString(it.getColumnIndexOrThrow(COLUMN_MESSAGE)))
+    private fun cursorToMap(it: android.database.Cursor, includeImagePayload: Boolean): Map<String, Any> {
+        val map = mutableMapOf<String, Any>(
+            COLUMN_ID to it.getInt(it.getColumnIndexOrThrow(COLUMN_ID)),
+            COLUMN_TIME to it.getString(it.getColumnIndexOrThrow(COLUMN_TIME)),
+            COLUMN_LEVEL to it.getString(it.getColumnIndexOrThrow(COLUMN_LEVEL)),
+            COLUMN_TAG to it.getString(it.getColumnIndexOrThrow(COLUMN_TAG)),
+            COLUMN_METHOD to it.getString(it.getColumnIndexOrThrow(COLUMN_METHOD))
+        )
+        val message = it.getString(it.getColumnIndexOrThrow(COLUMN_MESSAGE)).orEmpty()
+        val imageIndex = it.getColumnIndex(COLUMN_IS_IMAGE)
+        val isImage = imageIndex >= 0 && it.getInt(imageIndex) == 1
+        map[COLUMN_IS_IMAGE] = if (isImage) 1 else 0
+        if (isImage) {
+            val mimeIndex = it.getColumnIndex(COLUMN_MIME_TYPE)
+            val thumbIndex = it.getColumnIndex(COLUMN_THUMBNAIL)
+            val chunkIndex = it.getColumnIndex(COLUMN_IMAGE_CHUNKED)
+            map[COLUMN_MIME_TYPE] = if (mimeIndex >= 0) it.getString(mimeIndex).orEmpty() else ""
+            map[COLUMN_THUMBNAIL] = if (thumbIndex >= 0) it.getString(thumbIndex).orEmpty() else ""
+            map[COLUMN_IMAGE_CHUNKED] = if (chunkIndex >= 0) it.getInt(chunkIndex) else 0
+            if (includeImagePayload) {
+                val payloadIndex = it.getColumnIndex(COLUMN_IMAGE_PAYLOAD)
+                map[COLUMN_IMAGE_PAYLOAD] = if (payloadIndex >= 0) it.getString(payloadIndex).orEmpty() else ""
+                map[COLUMN_MESSAGE] = message
+            } else {
+                map[COLUMN_MESSAGE] = message.ifEmpty { "[IMAGE]" }
+            }
+        } else {
+            map[COLUMN_MESSAGE] = message
+        }
+        return map
     }
 
     private fun tableExists(tableName: String): Boolean {
@@ -360,11 +557,59 @@ object LogDbManager {
             }
             if (exists) {
                 existedTables.add(tableName)
+                ensureTableSchema(tableName)
             }
             exists
         } catch (_: Exception) {
             false
         }
+    }
+
+    private fun ensureTableSchema(tableName: String) {
+        val cached = tableColumnsCache[tableName]
+        if (cached != null &&
+            cached.containsAll(
+                listOf(
+                    COLUMN_IS_IMAGE,
+                    COLUMN_MIME_TYPE,
+                    COLUMN_THUMBNAIL,
+                    COLUMN_IMAGE_PAYLOAD,
+                    COLUMN_IMAGE_CHUNKED
+                )
+            )
+        ) {
+            return
+        }
+        val columns = mutableSetOf<String>()
+        database.rawQuery("PRAGMA table_info($tableName)", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                columns.add(cursor.getString(cursor.getColumnIndexOrThrow("name")))
+            }
+        }
+        addColumnIfMissing(tableName, columns, COLUMN_IS_IMAGE, "INTEGER DEFAULT 0")
+        addColumnIfMissing(tableName, columns, COLUMN_MIME_TYPE, "TEXT")
+        addColumnIfMissing(tableName, columns, COLUMN_THUMBNAIL, "TEXT")
+        addColumnIfMissing(tableName, columns, COLUMN_IMAGE_PAYLOAD, "TEXT")
+        addColumnIfMissing(tableName, columns, COLUMN_IMAGE_CHUNKED, "INTEGER DEFAULT 0")
+        database.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_time_image ON $tableName($COLUMN_TIME, $COLUMN_IS_IMAGE)")
+        database.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS ${tableName}_img_chunk (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                log_id INTEGER NOT NULL,
+                chunk_index INTEGER NOT NULL,
+                chunk_data TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+        database.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_img_chunk ON ${tableName}_img_chunk(log_id, chunk_index)")
+        tableColumnsCache[tableName] = columns
+    }
+
+    private fun addColumnIfMissing(tableName: String, existing: MutableSet<String>, column: String, definition: String) {
+        if (existing.contains(column)) return
+        database.execSQL("ALTER TABLE $tableName ADD COLUMN $column $definition")
+        existing.add(column)
     }
 
 }

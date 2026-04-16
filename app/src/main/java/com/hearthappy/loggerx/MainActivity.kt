@@ -2,6 +2,7 @@ package com.hearthappy.loggerx
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -87,6 +88,14 @@ class MainActivity: AppCompatActivity() {
                 }
                 LoggerX.COMMON.json(jSONObject.toString())
                 MyApp.CUSTOM_SCOPE.d("自定义的作用域日志  测试！！！")
+
+                //写入图片
+                val resource = BitmapFactory.decodeResource(resources, R.mipmap.test_face)
+                LoggerX.COMMON.image(resource, message = "裁剪图：")
+                val resource1 = BitmapFactory.decodeResource(resources, R.mipmap.test1)
+                LoggerX.COMMON.image(resource1, message = "壁纸图")
+                val resource2 = BitmapFactory.decodeResource(resources, R.mipmap.test2)
+                LoggerX.COMMON.image(resource2, message = "壁纸图")
             }
         }
     }

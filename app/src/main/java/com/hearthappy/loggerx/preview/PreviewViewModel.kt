@@ -33,6 +33,9 @@ class PreviewViewModel(private val scopeProxy: LogScopeProxy) : ViewModel() {
     private val _draftState = MutableStateFlow(FilterState.EMPTY)
     val draftState: StateFlow<FilterState> = _draftState.asStateFlow()
 
+    private val _activeCategory = MutableStateFlow(FilterCategory.ALL)
+    val activeCategory: StateFlow<FilterCategory> = _activeCategory.asStateFlow()
+
     private val _distinctValues = MutableStateFlow(DistinctValuesUiState())
     val distinctValues: StateFlow<DistinctValuesUiState> = _distinctValues.asStateFlow()
 
@@ -52,29 +55,23 @@ class PreviewViewModel(private val scopeProxy: LogScopeProxy) : ViewModel() {
 
     fun startFilterEditing() {
         _draftState.value = _appliedState.value
+        _activeCategory.value = FilterCategory.ALL
         refreshDistinctValues()
     }
 
-    fun toggleSelection(category: FilterCategory, value: String) {
+    fun setActiveCategory(category: FilterCategory) {
+        _activeCategory.value = category
+    }
+
+    fun toggleSelection(category: FilterCategory, value: String?) {
         if (_distinctValues.value.disabledCategories.contains(category)) return
         _draftState.update { it.toggle(category, value) }
         queryWithState(_draftState.value)
     }
 
-    fun clearCategory(category: FilterCategory) {
-        _draftState.update { current ->
-            when (category) {
-                FilterCategory.TIME -> current.copy(time = emptySet())
-                FilterCategory.LEVEL -> current.copy(level = emptySet())
-                FilterCategory.TAG -> current.copy(tag = emptySet())
-                FilterCategory.METHOD -> current.copy(method = emptySet())
-            }
-        }
-        queryWithState(_draftState.value)
-    }
-
     fun resetDraft() {
         _draftState.value = FilterState.EMPTY
+        _activeCategory.value = FilterCategory.ALL
         queryWithState(_draftState.value)
     }
 
@@ -101,12 +98,15 @@ class PreviewViewModel(private val scopeProxy: LogScopeProxy) : ViewModel() {
             withContext(Dispatchers.IO) {
                 FilterCategory.filterable.forEach { category ->
                     try {
-                        val result = scopeProxy.getDistinctValues(category.columnName.orEmpty()).orEmpty()
+                        val result = if (category == FilterCategory.IMAGE) {
+                            listOf(FilterCategory.IMAGE_ONLY_VALUE)
+                        } else {
+                            scopeProxy.getDistinctValues(category.columnName.orEmpty())
+                        }
                         values[category] = result
                     } catch (_: Exception) {
                         hasError = true
                         disabled.add(category)
-                        values[category] = emptyList()
                     }
                 }
             }
@@ -131,6 +131,7 @@ class PreviewViewModel(private val scopeProxy: LogScopeProxy) : ViewModel() {
                     tag = params.tag,
                     level = params.level,
                     method = params.method,
+                    isImage = params.isImage,
                     keyword = null,
                     isAsc = false,
                     page = params.page,

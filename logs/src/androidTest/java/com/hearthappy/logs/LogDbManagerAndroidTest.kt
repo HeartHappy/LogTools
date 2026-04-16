@@ -8,7 +8,6 @@ import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.hearthappy.log.LoggerX
-import com.hearthappy.log.core.ImageLogCodec
 import com.hearthappy.log.db.LogDbManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -61,45 +60,15 @@ class LogDbManagerAndroidTest {
     }
 
     @Test
-    fun imageLog_shouldRejectOverflowPayload() {
-        val scope = "OverflowScope"
-        val large = "A".repeat(ImageLogCodec.MAX_TEXT_COLUMN_BYTES + 10)
-        val ok = LogDbManager.insertImageLog(
-            scopeTag = scope,
-            level = "INFO",
-            classTag = "Main",
-            method = "m()",
-            message = "overflow",
-            mimeType = "image/jpeg",
-            thumbnailBase64 = "thumb",
-            payloadBase64 = large,
-            chunked = false,
-            chunks = emptyList()
-        )
-        assertTrue(!ok)
-    }
-
-    @Test
-    fun imageLog_shouldLoadFromChunks() {
-        val scope = "ChunkScope"
-        val payload = "B".repeat(70_000)
-        val chunks = payload.chunked(30_000)
-        val inserted = LogDbManager.insertImageLog(
-            scopeTag = scope,
-            level = "INFO",
-            classTag = "Main",
-            method = "m()",
-            message = "chunked",
-            mimeType = "image/jpeg",
-            thumbnailBase64 = "thumb",
-            payloadBase64 = null,
-            chunked = true,
-            chunks = chunks
-        )
-        assertTrue(inserted)
+    fun imageLog_shouldLoadPreviewData() {
+        val scope = "PreviewScope"
+        val proxy = LoggerX.createScope(scope)
+        val payload = fakeBitmapBytes(720, 480, Bitmap.CompressFormat.JPEG)
+        assertTrue(proxy.image(payload, "image/jpeg"))
         val id = LogDbManager.queryLogsAdvanced(scope, limit = 1).first()[LoggerX.COLUMN_ID].toString().toInt()
-        val loaded = LogDbManager.loadImageBase64(scope, id)
-        assertEquals(payload, loaded)
+        val loaded = proxy.loadImagePreviewData(id)
+        assertNotNull(loaded)
+        assertTrue(!loaded!!.compressedBase64.isNullOrBlank())
     }
 
     @Test

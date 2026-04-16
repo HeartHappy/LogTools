@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Base64
+import android.util.LruCache
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -75,8 +76,17 @@ class ImagePreviewDialogFragment : DialogFragment() {
     private fun loadImageLazily() {
         val outputterIndex = requireArguments().getInt(ARG_OUTPUTTER_INDEX)
         val logId = requireArguments().getInt(ARG_LOG_ID)
+        val cacheKey = buildCacheKey(outputterIndex, logId)
         binding.pbLoadingImage.isVisible = true
         lifecycleScope.launch {
+            val cached = imageCache.get(cacheKey)
+            if (cached != null) {
+                currentBytes = cached
+                currentMime = detectMimeType(cached)
+                binding.ivPreview.setImageBitmap(withContext(Dispatchers.IO) { decodeBitmapSafely(cached, PREVIEW_MAX_SIDE) })
+                binding.pbLoadingImage.isVisible = false
+                return@launch
+            }
             val previewData = withContext(Dispatchers.IO) {
                 val scopeProxy: LogScopeProxy = LoggerX.getOutputters()[outputterIndex].scope.getProxy()
                 scopeProxy.loadImagePreviewData(logId)
@@ -88,7 +98,7 @@ class ImagePreviewDialogFragment : DialogFragment() {
             }
             currentMime = previewData.mimeType.ifBlank { "image/webp" }
             showThumbnail(previewData)
-            val loadedCompressed = loadCompressedWithTimeout(previewData)
+            val loadedCompressed = loadCompressedWithTimeout(previewData, cacheKey)
             binding.pbLoadingImage.isVisible = false
             if (!loadedCompressed && currentBytes == null) {
                 Toast.makeText(requireContext(), "图片加载失败，已回退缩略图", Toast.LENGTH_SHORT).show()
@@ -106,7 +116,7 @@ class ImagePreviewDialogFragment : DialogFragment() {
         }
     }
 
-    private suspend fun loadCompressedWithTimeout(previewData: ImagePreviewData): Boolean {
+    private suspend fun loadCompressedWithTimeout(previewData: ImagePreviewData, cacheKey: Int): Boolean {
         val compressedBytes = withContext(Dispatchers.IO) {
             withTimeoutOrNull(IMAGE_LOAD_TIMEOUT_MS) {
                 decodeBase64(previewData.compressedBase64)
@@ -116,12 +126,18 @@ class ImagePreviewDialogFragment : DialogFragment() {
             Toast.makeText(requireContext(), "压缩图加载超时，展示缩略图", Toast.LENGTH_SHORT).show()
             return false
         }
+        if (!isSupportedImageFormat(compressedBytes)) {
+            Toast.makeText(requireContext(), "图片格式不兼容，展示缩略图", Toast.LENGTH_SHORT).show()
+            return false
+        }
         val bitmap = withContext(Dispatchers.IO) { decodeBitmapSafely(compressedBytes, PREVIEW_MAX_SIDE) }
         if (bitmap == null) {
             Toast.makeText(requireContext(), "压缩图解码失败，展示缩略图", Toast.LENGTH_SHORT).show()
             return false
         }
         currentBytes = compressedBytes
+        currentMime = detectMimeType(compressedBytes)
+        imageCache.put(cacheKey, compressedBytes)
         binding.ivPreview.setImageBitmap(bitmap)
         return true
     }
@@ -147,6 +163,41 @@ class ImagePreviewDialogFragment : DialogFragment() {
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun isSupportedImageFormat(bytes: ByteArray): Boolean {
+        return detectMimeType(bytes) in SUPPORTED_MIME_TYPES
+    }
+
+    private fun detectMimeType(bytes: ByteArray): String {
+        if (bytes.size >= 12 &&
+            bytes[0] == 0x52.toByte() &&
+            bytes[1] == 0x49.toByte() &&
+            bytes[2] == 0x46.toByte() &&
+            bytes[3] == 0x46.toByte() &&
+            bytes[8] == 0x57.toByte() &&
+            bytes[9] == 0x45.toByte() &&
+            bytes[10] == 0x42.toByte() &&
+            bytes[11] == 0x50.toByte()
+        ) {
+            return "image/webp"
+        }
+        if (bytes.size >= 8 &&
+            bytes[0] == 0x89.toByte() &&
+            bytes[1] == 0x50.toByte() &&
+            bytes[2] == 0x4E.toByte() &&
+            bytes[3] == 0x47.toByte()
+        ) {
+            return "image/png"
+        }
+        if (bytes.size >= 2 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte()) {
+            return "image/jpeg"
+        }
+        return "application/octet-stream"
+    }
+
+    private fun buildCacheKey(outputterIndex: Int, logId: Int): Int {
+        return (outputterIndex * 1_000_003) xor logId
     }
 
     private fun calculateInSampleSize(width: Int, height: Int, maxSide: Int): Int {
@@ -200,6 +251,8 @@ class ImagePreviewDialogFragment : DialogFragment() {
         private const val IMAGE_LOAD_TIMEOUT_MS = 3_000L
         private const val PREVIEW_MAX_SIDE = 2_048
         private const val THUMB_MAX_SIDE = 512
+        private val SUPPORTED_MIME_TYPES = setOf("image/jpeg", "image/png", "image/webp")
+        private val imageCache = object : LruCache<Int, ByteArray>(30) {}
 
         fun newInstance(outputterIndex: Int, logId: Int): ImagePreviewDialogFragment {
             return ImagePreviewDialogFragment().apply {

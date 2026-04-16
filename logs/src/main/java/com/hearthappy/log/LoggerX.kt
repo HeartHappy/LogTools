@@ -3,12 +3,15 @@ package com.hearthappy.log
 import android.app.Application
 import android.content.Context
 import com.hearthappy.log.core.ContextHolder
+import com.hearthappy.log.core.IImageCompressor
+import com.hearthappy.log.core.ImageCompressionOptions
 import com.hearthappy.log.core.LogExportManager
 import com.hearthappy.log.core.LogOutputter
 import com.hearthappy.log.core.LogOutputterManager
 import com.hearthappy.log.core.LogScope
 import com.hearthappy.log.core.LogScopeProxy
 import com.hearthappy.log.core.OutputConfig
+import com.hearthappy.log.core.DefaultImageCompressor
 import com.hearthappy.log.db.LogDbManager
 import com.hearthappy.log.interceptor.LogInterceptor
 
@@ -40,17 +43,25 @@ class LoggerX {
         const val COLUMN_TAG = "tag"
         const val COLUMN_METHOD = "method"
         const val COLUMN_MESSAGE = "message"
-        const val COLUMN_IS_IMAGE = "is_image"
-        const val COLUMN_MIME_TYPE = "mime_type"
+        const val COLUMN_IS_IMAGE = "is_image" // virtual output column
+        const val COLUMN_MEDIA_TYPE = "media_type"
         const val COLUMN_THUMBNAIL = "thumbnail"
-        const val COLUMN_IMAGE_PAYLOAD = "image_payload"
-        const val COLUMN_IMAGE_CHUNKED = "image_chunked"
+        const val COLUMN_COMPRESSED_IMAGE = "compressed_image"
+        const val COLUMN_IMAGE_ID = "image_id"
+        const val COLUMN_ORIGINAL_SIZE = "original_size"
+        const val COLUMN_COMPRESSED_SIZE = "compressed_size"
+        const val COLUMN_COMPRESSION_RATIO = "compression_ratio"
+        const val COLUMN_CHECKSUM_SHA256 = "checksum_sha256"
 
         // ========== 内置Scope（直接调用） ==========
         val COMMON = LogScopeProxy("Common")
         val IMPORTANT = LogScopeProxy("Important")
         val KERNEL = LogScopeProxy("Kernel")
         val ERROR = LogScopeProxy("Error")
+        @Volatile
+        internal var imageCompressor: IImageCompressor = DefaultImageCompressor()
+        @Volatile
+        internal var imageCompressionOptions: ImageCompressionOptions = ImageCompressionOptions()
 
         // ========== 自定义Scope（扩展用） ==========
         fun registerScope(logInterceptor: LogInterceptor, vararg scopes: LogScope) {
@@ -61,6 +72,14 @@ class LoggerX {
 
         fun createScope(customScope: String): LogScopeProxy {
             return LogOutputterManager.create(customScope)
+        }
+
+        fun setImageCompressor(
+            compressor: IImageCompressor,
+            options: ImageCompressionOptions = ImageCompressionOptions()
+        ) {
+            imageCompressor = compressor
+            imageCompressionOptions = options
         }
 
 

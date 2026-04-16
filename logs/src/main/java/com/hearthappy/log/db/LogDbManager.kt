@@ -1,91 +1,129 @@
 package com.hearthappy.log.db
 
 import android.content.ContentValues
-import android.database.sqlite.SQLiteStatement
+import android.database.Cursor
+import android.database.sqlite.SQLiteDatabase
+import android.util.Base64
 import android.util.Log
 import com.hearthappy.log.LoggerX
-import com.hearthappy.log.LoggerX.Companion.COLUMN_IMAGE_CHUNKED
-import com.hearthappy.log.LoggerX.Companion.COLUMN_IMAGE_PAYLOAD
-import com.hearthappy.log.LoggerX.Companion.COLUMN_IS_IMAGE
-import com.hearthappy.log.LoggerX.Companion.COLUMN_ID
-import com.hearthappy.log.LoggerX.Companion.COLUMN_LEVEL
-import com.hearthappy.log.LoggerX.Companion.COLUMN_MESSAGE
-import com.hearthappy.log.LoggerX.Companion.COLUMN_METHOD
-import com.hearthappy.log.LoggerX.Companion.COLUMN_MIME_TYPE
-import com.hearthappy.log.LoggerX.Companion.COLUMN_TAG
-import com.hearthappy.log.LoggerX.Companion.COLUMN_THUMBNAIL
-import com.hearthappy.log.LoggerX.Companion.COLUMN_TIME
-import com.hearthappy.log.core.ImageLogCodec
 import com.hearthappy.log.core.ContextHolder
+import com.hearthappy.log.core.EncodedImageLog
+import com.hearthappy.log.core.IImageCompressor
+import com.hearthappy.log.core.ImageCompressionOptions
+import com.hearthappy.log.core.ImageLogCodec
+import com.hearthappy.log.core.ImageLogWriteException
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
+import java.io.File
+import java.io.RandomAccessFile
+import java.security.MessageDigest
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
+import java.nio.channels.FileChannel
 
 object LogDbManager {
+    data class ImageWriteTask(
+        val scopeTag: String,
+        val level: String,
+        val classTag: String,
+        val method: String,
+        val message: String,
+        val imageBytes: ByteArray,
+        val compressor: IImageCompressor,
+        val options: ImageCompressionOptions,
+        val retry: Int = 0,
+        val important: Boolean = false,
+        val enqueueAtMs: Long = System.currentTimeMillis()
+    )
+
     data class ImagePreviewData(
         val mimeType: String,
         val thumbnailBase64: String?,
         val compressedBase64: String?
     )
 
+    data class QueryPageResult(
+        val rows: List<Map<String, Any>>,
+        val totalCount: Int,
+        val page: Int,
+        val limit: Int,
+        val nextPage: Int?,
+        val approxBytes: Int,
+        val hasMore: Boolean,
+        val queryPlan: List<String>
+    )
+
+    private data class PreparedImageWrite(
+        val tableName: String,
+        val level: String,
+        val classTag: String,
+        val method: String,
+        val message: String,
+        val encoded: EncodedImageLog,
+        val sourceTask: ImageWriteTask? = null
+    )
+
     private val dbHelper = LogDbHelper(ContextHolder.getAppContext())
     private val database = dbHelper.writableDatabase
-
-    // 缓存不同表的 SQLiteStatement，Key 为表名
-    private val statementCache = HashMap<String, SQLiteStatement>()
-
-    // 记录已存在的表，减少查询次数
+    private val readDbLock = Any()
+    @Volatile
+    private var readOnlyDatabase: SQLiteDatabase? = null
     private val existedTables = HashSet<String>()
-    private val tableColumnsCache = HashMap<String, Set<String>>()
     private val scheduledExecutor = Executors.newSingleThreadScheduledExecutor()
+    private const val IMAGE_TABLE = "log_image"
+    private const val IMAGE_QUEUE_CAPACITY = 1500
+    private const val IMAGE_BACKPRESSURE_THRESHOLD = 1000
+    private const val IMAGE_BATCH_SIZE = 50
+    private const val IMAGE_BATCH_FLUSH_MS = 200L
+    private const val IMAGE_MAX_RETRY = 3
+    private val imageWriteQueue = LinkedBlockingQueue<ImageWriteTask>(IMAGE_QUEUE_CAPACITY)
+    private val imageBatchWriter = Executors.newSingleThreadExecutor()
+    private val asyncAcceptedCount = AtomicLong(0)
+    private val asyncSuccessCount = AtomicLong(0)
+    private val asyncFailedCount = AtomicLong(0)
+    private val asyncRetryCount = AtomicLong(0)
+    private val asyncDroppedCount = AtomicLong(0)
+    private val asyncOver50MsCount = AtomicLong(0)
+    private val asyncOver100MsCount = AtomicLong(0)
+    private val asyncMaxCostMs = AtomicLong(0)
+    private val asyncBatchCount = AtomicLong(0)
+    private val asyncBatchMaxSize = AtomicLong(0)
 
-    private fun getTableName(scopeTag: String): String { // 过滤非法字符，确保表名合法
+    private fun getTableName(scopeTag: String): String {
         val cleanTag = scopeTag.replace(Regex("[^a-zA-Z0-9_]"), "_")
         return "${cleanTag}_log"
     }
 
-    @Synchronized private fun ensureTable(tableName: String): SQLiteStatement {
-        if (!existedTables.contains(tableName)) {
-            dbHelper.createLogTable(database, tableName)
-            existedTables.add(tableName)
-        }
-        ensureTableSchema(tableName)
-
-        return statementCache.getOrPut(tableName) {
-            database.compileStatement("INSERT INTO $tableName (level, tag, method, message) VALUES (?, ?, ?, ?)")
-        }
+    init {
+        startImageBatchWriter()
     }
 
-    fun getDbFileSize(): Double {
-        return dbHelper.getDbFileSize()
+    @Synchronized
+    private fun ensureTable(tableName: String) {
+        if (existedTables.contains(tableName)) return
+        dbHelper.createLogTable(database, tableName)
+        existedTables.add(tableName)
     }
 
-    /**
-     * 写入日志：根据 scope 自动分表
-     */
+    fun getDbFileSize(): Double = dbHelper.getDbFileSize()
+
     @Synchronized
     fun insertLog(scopeTag: String, level: String, classTag: String, method: String, message: String) {
         val tableName = getTableName(scopeTag)
-        repeat(2) { attempt ->
-            try {
-                val stmt = ensureTable(tableName)
-                stmt.clearBindings()
-                stmt.bindString(1, level)
-                stmt.bindString(2, classTag)
-                stmt.bindString(3, method)
-                stmt.bindString(4, message)
-                stmt.executeInsert()
-                return
-            } catch (e: Exception) {
-                statementCache.remove(tableName)?.close()
-                existedTables.remove(tableName)
-                try {
-                    dbHelper.createLogTable(database, tableName)
-                } catch (_: Exception) {
-                }
-                if (attempt == 1) {
-                    Log.e(LoggerX.TAG, "Insert failed after retry: ${e.message}")
-                }
-            }
+        try {
+            ensureTable(tableName)
+            database.insertOrThrow(tableName, null, ContentValues().apply {
+                put(LoggerX.COLUMN_LEVEL, level)
+                put(LoggerX.COLUMN_TAG, classTag)
+                put(LoggerX.COLUMN_METHOD, method)
+                put(LoggerX.COLUMN_MESSAGE, message)
+                put(LoggerX.COLUMN_THUMBNAIL, "")
+                put(LoggerX.COLUMN_IMAGE_ID, -1)
+            })
+        } catch (e: Exception) {
+            Log.e(LoggerX.TAG, "insertLog failed: ${e.message}")
         }
     }
 
@@ -96,190 +134,263 @@ object LogDbManager {
         classTag: String,
         method: String,
         message: String,
-        mimeType: String,
-        thumbnailBase64: String,
-        payloadBase64: String?,
-        chunked: Boolean,
-        chunks: List<String>
+        imageBytes: ByteArray,
+        compressor: IImageCompressor,
+        options: ImageCompressionOptions
     ): Boolean {
-        val tableName = getTableName(scopeTag)
-        if (thumbnailBase64.toByteArray(Charsets.UTF_8).size > ImageLogCodec.MAX_TEXT_COLUMN_BYTES) {
-            Log.w(LoggerX.TAG, "Thumbnail exceeds TEXT limit, reject image log")
+        return insertImageLogInternal(
+            scopeTag = scopeTag,
+            level = level,
+            classTag = classTag,
+            method = method,
+            message = message,
+            imageBytes = imageBytes,
+            compressor = compressor,
+            options = options
+        )
+    }
+
+    fun enqueueImageLog(
+        scopeTag: String,
+        level: String,
+        classTag: String,
+        method: String,
+        message: String,
+        imageBytes: ByteArray,
+        compressor: IImageCompressor,
+        options: ImageCompressionOptions,
+        important: Boolean = false
+    ): Boolean {
+        val degradedOptions = if (imageWriteQueue.size >= IMAGE_BACKPRESSURE_THRESHOLD && !important) {
+            options.copy(targetSizeKb = (options.targetSizeKb * 0.7f).toInt().coerceAtLeast(80))
+        } else {
+            options
+        }
+        if (imageWriteQueue.size >= IMAGE_QUEUE_CAPACITY - 1 && !important) {
+            asyncDroppedCount.incrementAndGet()
+            Log.w(LoggerX.TAG, "image queue full, dropping non-critical image log")
             return false
         }
-        if (!chunked && !payloadBase64.isNullOrEmpty() &&
-            payloadBase64.toByteArray(Charsets.UTF_8).size > ImageLogCodec.MAX_TEXT_COLUMN_BYTES
-        ) {
-            Log.w(LoggerX.TAG, "Image payload exceeds TEXT limit, reject image log")
-            return false
+        val accepted = imageWriteQueue.offer(
+            ImageWriteTask(
+                scopeTag = scopeTag,
+                level = level,
+                classTag = classTag,
+                method = method,
+                message = message,
+                imageBytes = imageBytes,
+                compressor = compressor,
+                options = degradedOptions,
+                important = important
+            )
+        )
+        if (accepted) {
+            asyncAcceptedCount.incrementAndGet()
+        } else {
+            asyncDroppedCount.incrementAndGet()
         }
-        if (chunked && chunks.any { it.toByteArray(Charsets.UTF_8).size > ImageLogCodec.MAX_TEXT_COLUMN_BYTES }) {
-            Log.w(LoggerX.TAG, "Image chunk exceeds TEXT limit, reject image log")
-            return false
-        }
-        try {
-            ensureTable(tableName)
-            database.beginTransaction()
-            val rowId = database.insertOrThrow(tableName, null, ContentValues().apply {
-                put(COLUMN_LEVEL, level)
-                put(COLUMN_TAG, classTag)
-                put(COLUMN_METHOD, method)
-                put(COLUMN_MESSAGE, message)
-                put(COLUMN_IS_IMAGE, 1)
-                put(COLUMN_MIME_TYPE, mimeType)
-                put(COLUMN_THUMBNAIL, thumbnailBase64)
-                put(COLUMN_IMAGE_PAYLOAD, payloadBase64)
-                put(COLUMN_IMAGE_CHUNKED, if (chunked) 1 else 0)
-            })
-            if (chunked && rowId > 0) {
-                val chunkTable = "${tableName}_img_chunk"
-                chunks.forEachIndexed { index, chunk ->
-                    database.insertOrThrow(chunkTable, null, ContentValues().apply {
-                        put("log_id", rowId.toInt())
-                        put("chunk_index", index)
-                        put("chunk_data", chunk)
-                    })
+        return accepted
+    }
+
+    fun getImageAsyncMetrics(): Map<String, Any> {
+        return mapOf(
+            "queueSize" to imageWriteQueue.size,
+            "queueRemainingCapacity" to imageWriteQueue.remainingCapacity(),
+            "acceptedCount" to asyncAcceptedCount.get(),
+            "successCount" to asyncSuccessCount.get(),
+            "failedCount" to asyncFailedCount.get(),
+            "retryCount" to asyncRetryCount.get(),
+            "droppedCount" to asyncDroppedCount.get(),
+            "over50msCount" to asyncOver50MsCount.get(),
+            "over100msCount" to asyncOver100MsCount.get(),
+            "maxCostMs" to asyncMaxCostMs.get(),
+            "batchCount" to asyncBatchCount.get(),
+            "batchMaxSize" to asyncBatchMaxSize.get()
+        )
+    }
+
+    @Synchronized
+    private fun insertImageLogInternal(
+        scopeTag: String,
+        level: String,
+        classTag: String,
+        method: String,
+        message: String,
+        imageBytes: ByteArray,
+        compressor: IImageCompressor,
+        options: ImageCompressionOptions
+    ): Boolean {
+        val prepared = prepareImageWrite(
+            scopeTag = scopeTag,
+            level = level,
+            classTag = classTag,
+            method = method,
+            message = message,
+            imageBytes = imageBytes,
+            compressor = compressor,
+            options = options
+        )
+        return insertPreparedImageBatch(listOf(prepared))
+    }
+
+    private fun startImageBatchWriter() {
+        imageBatchWriter.execute {
+            while (!Thread.currentThread().isInterrupted) {
+                runCatching {
+                    val first = imageWriteQueue.take()
+                    val batch = mutableListOf(first)
+                    val deadline = System.currentTimeMillis() + IMAGE_BATCH_FLUSH_MS
+                    while (batch.size < IMAGE_BATCH_SIZE) {
+                        val remaining = deadline - System.currentTimeMillis()
+                        if (remaining <= 0L) break
+                        val next = imageWriteQueue.poll(remaining, TimeUnit.MILLISECONDS) ?: break
+                        batch += next
+                    }
+                    processImageWriteBatch(batch)
+                }.onFailure {
+                    Log.e(LoggerX.TAG, "image batch writer failed: ${it.message}")
                 }
             }
-            database.setTransactionSuccessful()
-            return rowId > 0
-        } catch (e: Exception) {
-            Log.e(LoggerX.TAG, "insertImageLog failed: ${e.message}")
-            return false
-        } finally {
-            runCatching { database.endTransaction() }
+        }
+    }
+
+    private fun processImageWriteBatch(tasks: List<ImageWriteTask>) {
+        if (tasks.isEmpty()) return
+        val startNs = System.nanoTime()
+        asyncBatchCount.incrementAndGet()
+        asyncBatchMaxSize.updateAndGet { old -> maxOf(old, tasks.size.toLong()) }
+        val prepared = mutableListOf<PreparedImageWrite>()
+        val retryTasks = mutableListOf<ImageWriteTask>()
+        tasks.forEach { task ->
+            runCatching {
+                prepareImageWrite(
+                    scopeTag = task.scopeTag,
+                    level = task.level,
+                    classTag = task.classTag,
+                    method = task.method,
+                    message = task.message,
+                    imageBytes = task.imageBytes,
+                    compressor = task.compressor,
+                    options = task.options,
+                    sourceTask = task
+                )
+            }.onSuccess {
+                prepared += it
+            }.onFailure { throwable ->
+                Log.e(LoggerX.TAG, "async image prepare failed(retry=${task.retry}): ${throwable.message}")
+                if (task.retry + 1 < IMAGE_MAX_RETRY) {
+                    asyncRetryCount.incrementAndGet()
+                    retryTasks += task.copy(retry = task.retry + 1)
+                } else {
+                    asyncFailedCount.incrementAndGet()
+                }
+            }
+        }
+        val success = runCatching {
+            if (prepared.isNotEmpty()) {
+                val mmapFile = stagePreparedBatchWithMmap(prepared)
+                try {
+                    insertPreparedImageBatch(prepared)
+                } finally {
+                    runCatching { mmapFile?.delete() }
+                }
+            } else {
+                true
+            }
+        }.getOrElse { throwable ->
+            Log.e(LoggerX.TAG, "async image batch insert failed: ${throwable.message}")
+            prepared.forEach { preparedItem ->
+                val originalTask = preparedItem.sourceTask
+                if (originalTask != null && originalTask.retry + 1 < IMAGE_MAX_RETRY) {
+                    asyncRetryCount.incrementAndGet()
+                    retryTasks += originalTask.copy(retry = originalTask.retry + 1)
+                } else {
+                    asyncFailedCount.incrementAndGet()
+                }
+            }
+            false
+        }
+        val costMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs)
+        asyncMaxCostMs.updateAndGet { old -> maxOf(old, costMs) }
+        if (costMs > 50L) {
+            asyncOver50MsCount.incrementAndGet()
+        }
+        if (costMs > 100L) {
+            asyncOver100MsCount.incrementAndGet()
+        }
+        if (success) {
+            asyncSuccessCount.addAndGet(prepared.size.toLong())
+        }
+        retryTasks.forEach { retryTask ->
+            if (!imageWriteQueue.offer(retryTask)) {
+                asyncFailedCount.incrementAndGet()
+            }
         }
     }
 
     fun loadImageBase64(scopeTag: String, logId: Int): String? {
         val tableName = getTableName(scopeTag)
         if (!tableExists(tableName)) return null
-        ensureTableSchema(tableName)
-        return try {
-            val cursor = database.query(
-                tableName,
-                arrayOf(COLUMN_IMAGE_CHUNKED, COLUMN_IMAGE_PAYLOAD, COLUMN_IS_IMAGE),
-                "$COLUMN_ID = ?",
-                arrayOf(logId.toString()),
-                null,
-                null,
-                null,
-                "1"
-            )
-            cursor.use {
-                if (!it.moveToFirst()) return null
-                if (it.getInt(it.getColumnIndexOrThrow(COLUMN_IS_IMAGE)) != 1) return null
-                val isChunked = it.getInt(it.getColumnIndexOrThrow(COLUMN_IMAGE_CHUNKED)) == 1
-                if (!isChunked) {
-                    return it.getString(it.getColumnIndexOrThrow(COLUMN_IMAGE_PAYLOAD))
-                }
-            }
-            val chunkTable = "${tableName}_img_chunk"
-            val chunkCursor = database.query(
-                chunkTable,
-                arrayOf("chunk_data"),
-                "log_id = ?",
-                arrayOf(logId.toString()),
-                null,
-                null,
-                "chunk_index ASC"
-            )
-            val builder = StringBuilder()
-            chunkCursor.use { c ->
-                while (c.moveToNext()) {
-                    builder.append(c.getString(0).orEmpty())
-                }
-            }
-            builder.toString().ifEmpty { null }
-        } catch (e: Exception) {
-            Log.e(LoggerX.TAG, "loadImageBase64 failed: ${e.message}")
-            null
-        }
+        return queryImageBlob(tableName, logId)?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
     }
 
     fun loadImagePreviewData(scopeTag: String, logId: Int): ImagePreviewData? {
         val tableName = getTableName(scopeTag)
         if (!tableExists(tableName)) return null
-        ensureTableSchema(tableName)
-        val mimeType: String
-        val thumbnail: String?
-        val isChunked: Boolean
-        val inlinePayload: String?
-        try {
-            database.query(
-                tableName,
-                arrayOf(COLUMN_IS_IMAGE, COLUMN_MIME_TYPE, COLUMN_THUMBNAIL, COLUMN_IMAGE_CHUNKED, COLUMN_IMAGE_PAYLOAD),
-                "$COLUMN_ID = ?",
-                arrayOf(logId.toString()),
-                null,
-                null,
-                null,
-                "1"
-            ).use { c ->
+        val sql = """
+            SELECT s.${LoggerX.COLUMN_THUMBNAIL}, i.${LoggerX.COLUMN_MEDIA_TYPE}, i.${LoggerX.COLUMN_COMPRESSED_IMAGE}
+            FROM $tableName s
+            LEFT JOIN $IMAGE_TABLE i ON s.${LoggerX.COLUMN_IMAGE_ID} = i.id
+            WHERE s.${LoggerX.COLUMN_ID}=?
+            LIMIT 1
+        """.trimIndent()
+        return runCatching {
+            getReadOnlyDatabase().rawQuery(sql, arrayOf(logId.toString())).use { c ->
                 if (!c.moveToFirst()) return null
-                if (c.getInt(c.getColumnIndexOrThrow(COLUMN_IS_IMAGE)) != 1) return null
-                mimeType = c.getString(c.getColumnIndexOrThrow(COLUMN_MIME_TYPE)).orEmpty().ifBlank { "image/webp" }
-                thumbnail = c.getString(c.getColumnIndexOrThrow(COLUMN_THUMBNAIL))
-                isChunked = c.getInt(c.getColumnIndexOrThrow(COLUMN_IMAGE_CHUNKED)) == 1
-                inlinePayload = c.getString(c.getColumnIndexOrThrow(COLUMN_IMAGE_PAYLOAD))
+                val thumb = c.getString(0)
+                val mime = c.getString(1).orEmpty().ifBlank { "image/webp" }
+                val blob = c.getBlob(2)
+                ImagePreviewData(
+                    mimeType = mime,
+                    thumbnailBase64 = thumb,
+                    compressedBase64 = blob?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
+                )
             }
-        } catch (e: Exception) {
-            Log.e(LoggerX.TAG, "loadImagePreviewData failed: ${e.message}")
-            return null
-        }
-        if (!isChunked) {
-            return ImagePreviewData(mimeType, thumbnail, inlinePayload)
-        }
-        val chunkTable = "${tableName}_img_chunk"
-        val builder = StringBuilder()
-        return try {
-            database.query(
-                chunkTable,
-                arrayOf("chunk_data"),
-                "log_id = ?",
-                arrayOf(logId.toString()),
-                null,
-                null,
-                "chunk_index ASC"
-            ).use { c ->
-                while (c.moveToNext()) {
-                    builder.append(c.getString(0).orEmpty())
-                }
+        }.getOrNull()
+    }
+
+    private fun queryImageBlobByImageId(imageId: Int): ByteArray? {
+        if (imageId <= 0) return null
+        val sql = """
+            SELECT ${LoggerX.COLUMN_COMPRESSED_IMAGE}
+            FROM $IMAGE_TABLE
+            WHERE id=?
+            LIMIT 1
+        """.trimIndent()
+        return runCatching {
+            getReadOnlyDatabase().rawQuery(sql, arrayOf(imageId.toString())).use { c ->
+                if (c.moveToFirst()) c.getBlob(0) else null
             }
-            ImagePreviewData(mimeType, thumbnail, builder.toString().ifEmpty { null })
-        } catch (e: Exception) {
-            Log.e(LoggerX.TAG, "loadImagePreviewData chunk load failed: ${e.message}")
-            ImagePreviewData(mimeType, thumbnail, null)
-        }
+        }.getOrNull()
     }
 
     fun loadImageMimeType(scopeTag: String, logId: Int): String? {
         val tableName = getTableName(scopeTag)
         if (!tableExists(tableName)) return null
-        ensureTableSchema(tableName)
-        return try {
-            database.query(
-                tableName,
-                arrayOf(COLUMN_MIME_TYPE),
-                "$COLUMN_ID = ? AND $COLUMN_IS_IMAGE = 1",
-                arrayOf(logId.toString()),
-                null,
-                null,
-                null,
-                "1"
-            ).use { c ->
+        val sql = """
+            SELECT i.${LoggerX.COLUMN_MEDIA_TYPE}
+            FROM $tableName s
+            LEFT JOIN $IMAGE_TABLE i ON s.${LoggerX.COLUMN_IMAGE_ID} = i.id
+            WHERE s.${LoggerX.COLUMN_ID}=?
+            LIMIT 1
+        """.trimIndent()
+        return runCatching {
+            getReadOnlyDatabase().rawQuery(sql, arrayOf(logId.toString())).use { c ->
                 if (c.moveToFirst()) c.getString(0) else null
             }
-        } catch (_: Exception) {
-            null
-        }
+        }.getOrNull()
     }
 
-    /**
-     * 1. 高级查询：支持 time, tag, level, method, message 的过滤与模糊查询
-     * @param time 模糊匹配，可传 "2026-03-20" 或 "2026-03-20 15"
-     * @param method 模糊匹配方法名
-     */
     fun queryLogsAdvanced(
         scopeTag: String,
         time: String? = null,
@@ -293,385 +404,608 @@ object LogDbManager {
         limit: Int? = 100,
         includeImagePayload: Boolean = false
     ): List<Map<String, Any>> {
-        val tableName = getTableName(scopeTag)
-        if (!tableExists(tableName)) return emptyList()
-        ensureTableSchema(tableName)
-        val list = mutableListOf<Map<String, Any>>()
-        val selection = StringBuilder()
-        val selectionArgs = mutableListOf<String>()
-
-        // 时间模糊查询 (LIKE '2026-03-20%')
-        time?.let {
-            addFilter(selection, "$COLUMN_TIME LIKE ?", "$it%", selectionArgs)
-        } // Tag 精确查询
-        tag?.let {
-            addFilter(selection, "$COLUMN_TAG = ?", it, selectionArgs)
-        } // Level 精确查询
-        level?.let {
-            addFilter(selection, "$COLUMN_LEVEL = ?", it, selectionArgs)
-        } // Method 模糊查询
-        method?.let {
-            addFilter(selection, "$COLUMN_METHOD LIKE ?", "%$it%", selectionArgs)
-        } // Message 关键字查询
-        isImage?.let {
-            addFilter(selection, "$COLUMN_IS_IMAGE = ?", if (it) "1" else "0", selectionArgs)
-        }
-        keyword?.let {
-            addFilter(selection, "$COLUMN_MESSAGE LIKE ?", "%$it%", selectionArgs)
-        }
-
-        val sortOrder = if (isAsc) "ASC" else "DESC"
-        val offset = if (limit != null) maxOf(0, (page - 1) * limit) else 0
-        val limitClause = when {
-            limit == null -> null
-            else -> "$offset, $limit"
-        }
-        try {
-            val cursor = database.query(
-                tableName,
-                null,
-                if (selection.isEmpty()) null else selection.toString(),
-                if (selectionArgs.isEmpty()) null else selectionArgs.toTypedArray(),
-                null,
-                null,
-                "$COLUMN_TIME $sortOrder",
-                limitClause
+        if (limit == null) {
+            return queryLogsAllAdvanced(
+                scopeTag = scopeTag,
+                time = time,
+                tag = tag,
+                level = level,
+                method = method,
+                isImage = isImage,
+                keyword = keyword,
+                isAsc = isAsc,
+                includeImagePayload = includeImagePayload
             )
-
-            cursor?.use {
-                while (it.moveToNext()) {
-                    list.add(cursorToMap(it, includeImagePayload))
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(LoggerX.TAG, "queryLogsAdvanced failed: ${e.message}")
-            return emptyList()
         }
-        return list
+        return queryLogsPageAdvanced(
+            scopeTag = scopeTag,
+            time = time,
+            tag = tag,
+            level = level,
+            method = method,
+            isImage = isImage,
+            keyword = keyword,
+            isAsc = isAsc,
+            page = page,
+            limit = limit ?: 100,
+            includeImagePayload = includeImagePayload
+        ).rows
     }
 
-    /**
-     * 2. 智能去重查询
-     * - time: 截取天 (YYYY-MM-DD) 后去重
-     * - method: 截取 $ 或 ( 之前的原始方法名后去重
-     */
+    fun queryLogsPageAdvanced(
+        scopeTag: String,
+        time: String? = null,
+        tag: String? = null,
+        level: String? = null,
+        method: String? = null,
+        isImage: Boolean? = null,
+        keyword: String? = null,
+        isAsc: Boolean = false,
+        page: Int = 1,
+        limit: Int = 100,
+        includeImagePayload: Boolean = false,
+        maxPageBytes: Int = 1024 * 1024
+    ): QueryPageResult {
+        val tableName = getTableName(scopeTag)
+        if (!tableExists(tableName)) {
+            return QueryPageResult(emptyList(), 0, page, limit, null, 0, false, emptyList())
+        }
+        val whereParts = mutableListOf<String>()
+        val args = mutableListOf<String>()
+        time?.let {
+            whereParts += "s.${LoggerX.COLUMN_TIME} LIKE ?"
+            args += "$it%"
+        }
+        tag?.let {
+            whereParts += "s.${LoggerX.COLUMN_TAG} = ?"
+            args += it
+        }
+        level?.let {
+            whereParts += "s.${LoggerX.COLUMN_LEVEL} = ?"
+            args += it
+        }
+        method?.let {
+            whereParts += "s.${LoggerX.COLUMN_METHOD} LIKE ?"
+            args += "%$it%"
+        }
+        keyword?.let {
+            whereParts += "s.${LoggerX.COLUMN_MESSAGE} LIKE ?"
+            args += "%$it%"
+        }
+        isImage?.let {
+            whereParts += if (it) "s.${LoggerX.COLUMN_IMAGE_ID} > 0" else "s.${LoggerX.COLUMN_IMAGE_ID} <= 0"
+        }
+        val where = if (whereParts.isEmpty()) "" else "WHERE ${whereParts.joinToString(" AND ")}"
+        val order = if (isAsc) "ASC" else "DESC"
+        val offset = maxOf(0, (page - 1) * limit)
+        val limitSql = "LIMIT $limit OFFSET $offset"
+        val sql = """
+            SELECT
+                s.${LoggerX.COLUMN_ID},
+                s.${LoggerX.COLUMN_TIME},
+                s.${LoggerX.COLUMN_LEVEL},
+                s.${LoggerX.COLUMN_TAG},
+                s.${LoggerX.COLUMN_METHOD},
+                s.${LoggerX.COLUMN_MESSAGE},
+                s.${LoggerX.COLUMN_THUMBNAIL},
+                s.${LoggerX.COLUMN_IMAGE_ID},
+                i.${LoggerX.COLUMN_MEDIA_TYPE},
+                i.${LoggerX.COLUMN_ORIGINAL_SIZE},
+                i.${LoggerX.COLUMN_COMPRESSED_SIZE},
+                i.${LoggerX.COLUMN_COMPRESSION_RATIO},
+                i.${LoggerX.COLUMN_CHECKSUM_SHA256}
+            FROM $tableName s
+            LEFT JOIN $IMAGE_TABLE i ON s.${LoggerX.COLUMN_IMAGE_ID} = i.id
+            $where
+            ORDER BY s.${LoggerX.COLUMN_TIME} $order
+            $limitSql
+        """.trimIndent()
+        val countSql = """
+            SELECT COUNT(*)
+            FROM $tableName s
+            $where
+        """.trimIndent()
+        val explainSql = "EXPLAIN QUERY PLAN $sql"
+        return runCatching {
+            val result = mutableListOf<Map<String, Any>>()
+            var bytes = 0
+            val db = getReadOnlyDatabase()
+            val totalCount = db.rawQuery(countSql, args.toTypedArray()).use { cursor ->
+                if (cursor.moveToFirst()) cursor.getInt(0) else 0
+            }
+            val queryPlan = db.rawQuery(explainSql, args.toTypedArray()).use { cursor ->
+                val plan = mutableListOf<String>()
+                while (cursor.moveToNext()) {
+                    plan += cursor.getString(3).orEmpty()
+                }
+                plan
+            }
+            db.rawQuery(sql, args.toTypedArray()).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val row = cursorToMap(cursor, includeImagePayload)
+                    val rowBytes = estimateRowBytes(row)
+                    if (result.isNotEmpty() && bytes + rowBytes > maxPageBytes) {
+                        break
+                    }
+                    result += row
+                    bytes += rowBytes
+                }
+            }
+            val loadedCount = offset + result.size
+            QueryPageResult(
+                rows = result,
+                totalCount = totalCount,
+                page = page,
+                limit = limit,
+                nextPage = if (loadedCount < totalCount && result.isNotEmpty()) page + 1 else null,
+                approxBytes = bytes,
+                hasMore = loadedCount < totalCount,
+                queryPlan = queryPlan
+            )
+        }.getOrElse {
+            Log.e(LoggerX.TAG, "queryLogsAdvanced failed: ${it.message}")
+            QueryPageResult(emptyList(), 0, page, limit, null, 0, false, emptyList())
+        }
+    }
+
+    private fun queryLogsAllAdvanced(
+        scopeTag: String,
+        time: String? = null,
+        tag: String? = null,
+        level: String? = null,
+        method: String? = null,
+        isImage: Boolean? = null,
+        keyword: String? = null,
+        isAsc: Boolean = false,
+        includeImagePayload: Boolean = false
+    ): List<Map<String, Any>> {
+        val tableName = getTableName(scopeTag)
+        if (!tableExists(tableName)) return emptyList()
+        val whereParts = mutableListOf<String>()
+        val args = mutableListOf<String>()
+        time?.let {
+            whereParts += "s.${LoggerX.COLUMN_TIME} LIKE ?"
+            args += "$it%"
+        }
+        tag?.let {
+            whereParts += "s.${LoggerX.COLUMN_TAG} = ?"
+            args += it
+        }
+        level?.let {
+            whereParts += "s.${LoggerX.COLUMN_LEVEL} = ?"
+            args += it
+        }
+        method?.let {
+            whereParts += "s.${LoggerX.COLUMN_METHOD} LIKE ?"
+            args += "%$it%"
+        }
+        keyword?.let {
+            whereParts += "s.${LoggerX.COLUMN_MESSAGE} LIKE ?"
+            args += "%$it%"
+        }
+        isImage?.let {
+            whereParts += if (it) "s.${LoggerX.COLUMN_IMAGE_ID} > 0" else "s.${LoggerX.COLUMN_IMAGE_ID} <= 0"
+        }
+        val where = if (whereParts.isEmpty()) "" else "WHERE ${whereParts.joinToString(" AND ")}"
+        val order = if (isAsc) "ASC" else "DESC"
+        val sql = """
+            SELECT
+                s.${LoggerX.COLUMN_ID},
+                s.${LoggerX.COLUMN_TIME},
+                s.${LoggerX.COLUMN_LEVEL},
+                s.${LoggerX.COLUMN_TAG},
+                s.${LoggerX.COLUMN_METHOD},
+                s.${LoggerX.COLUMN_MESSAGE},
+                s.${LoggerX.COLUMN_THUMBNAIL},
+                s.${LoggerX.COLUMN_IMAGE_ID},
+                i.${LoggerX.COLUMN_MEDIA_TYPE},
+                i.${LoggerX.COLUMN_ORIGINAL_SIZE},
+                i.${LoggerX.COLUMN_COMPRESSED_SIZE},
+                i.${LoggerX.COLUMN_COMPRESSION_RATIO},
+                i.${LoggerX.COLUMN_CHECKSUM_SHA256}
+            FROM $tableName s
+            LEFT JOIN $IMAGE_TABLE i ON s.${LoggerX.COLUMN_IMAGE_ID} = i.id
+            $where
+            ORDER BY s.${LoggerX.COLUMN_TIME} $order
+        """.trimIndent()
+        return runCatching {
+            val result = mutableListOf<Map<String, Any>>()
+            getReadOnlyDatabase().rawQuery(sql, args.toTypedArray()).use { cursor ->
+                while (cursor.moveToNext()) {
+                    result += cursorToMap(cursor, includeImagePayload)
+                }
+            }
+            result
+        }.getOrElse {
+            Log.e(LoggerX.TAG, "queryLogsAllAdvanced failed: ${it.message}")
+            emptyList()
+        }
+    }
+
     fun getDistinctValues(scopeTag: String, columnName: String): List<String> {
         val tableName = getTableName(scopeTag)
         if (!tableExists(tableName)) return emptyList()
-        val result = mutableListOf<String>()
-
-        // 动态构建针对不同字段的清洗 SQL
         val sql = when (columnName) {
-            COLUMN_TIME -> { // 截取前10位：2026-03-20 15:15:10 -> 2026-03-20
-                "SELECT DISTINCT substr($COLUMN_TIME, 1, 10) FROM $tableName ORDER BY $COLUMN_TIME DESC"
-            }
-            COLUMN_METHOD -> {
-                /**
-                 * 逻辑：
-                 * 1. 查找 $ 或 ( 的位置
-                 * 2. 如果存在，截取其前面的部分
-                 * 3. 如果不存在，返回原字符串
-                 */
-                """
-                SELECT DISTINCT 
-                    CASE 
-                        WHEN instr($COLUMN_METHOD, '$') > 0 THEN substr($COLUMN_METHOD, 1, instr($COLUMN_METHOD, '$') - 1)
-                        WHEN instr($COLUMN_METHOD, '(') > 0 THEN substr($COLUMN_METHOD, 1, instr($COLUMN_METHOD, '(') - 1)
-                        ELSE $COLUMN_METHOD 
-                    END as clean_method 
-                FROM $tableName 
-                ORDER BY clean_method ASC
-                """.trimIndent()
-            }
+            LoggerX.COLUMN_TIME -> "SELECT DISTINCT substr(${LoggerX.COLUMN_TIME},1,10) FROM $tableName ORDER BY ${LoggerX.COLUMN_TIME} DESC"
+            LoggerX.COLUMN_METHOD -> """
+                SELECT DISTINCT CASE
+                    WHEN instr(${LoggerX.COLUMN_METHOD}, '$') > 0 THEN substr(${LoggerX.COLUMN_METHOD},1,instr(${LoggerX.COLUMN_METHOD}, '$') - 1)
+                    WHEN instr(${LoggerX.COLUMN_METHOD}, '(') > 0 THEN substr(${LoggerX.COLUMN_METHOD},1,instr(${LoggerX.COLUMN_METHOD}, '(') - 1)
+                    ELSE ${LoggerX.COLUMN_METHOD}
+                END FROM $tableName
+            """.trimIndent()
+            LoggerX.COLUMN_IS_IMAGE -> """
+                SELECT DISTINCT CASE WHEN ${LoggerX.COLUMN_IMAGE_ID} > 0 THEN '1' ELSE '0' END FROM $tableName
+            """.trimIndent()
             else -> "SELECT DISTINCT $columnName FROM $tableName"
         }
-
-        try {
-            val cursor = database.rawQuery(sql, null)
-            cursor?.use {
-                while (it.moveToNext()) {
-                    val value = it.getString(0)
-                    if (!value.isNullOrEmpty()) result.add(value)
+        return runCatching {
+            val values = mutableListOf<String>()
+            getReadOnlyDatabase().rawQuery(sql, null).use { c ->
+                while (c.moveToNext()) {
+                    c.getString(0)?.takeIf { it.isNotBlank() }?.let(values::add)
                 }
             }
-        } catch (e: Exception) {
-            Log.e(LoggerX.TAG, "getDistinctValues failed: ${e.message}")
-            return emptyList()
+            values
+        }.getOrElse {
+            Log.e(LoggerX.TAG, "getDistinctValues failed: ${it.message}")
+            emptyList()
         }
-        return result
     }
 
-    /**
-     * 1、删除指定 Scope 的所有数据
-     * 2、删除旧数据：删除指定时间点之前的日志
-     * @param timeFormat 格式为 "yyyy-MM-dd HH:mm:ss"
-     */
     fun deleteLogs(scopeTag: String, timeFormat: String?): Int {
         val tableName = getTableName(scopeTag)
-        val chunkTable = "${tableName}_img_chunk"
-        return timeFormat?.run {
-            val ids = mutableListOf<Int>()
-            database.query(tableName, arrayOf(COLUMN_ID), "$COLUMN_TIME < ?", arrayOf(this), null, null, null)
-                .use { c -> while (c.moveToNext()) ids.add(c.getInt(0)) }
-            if (ids.isNotEmpty()) {
+        if (!tableExists(tableName)) return 0
+        val ids = mutableListOf<Int>()
+        val where = if (timeFormat.isNullOrBlank()) null else "${LoggerX.COLUMN_TIME} < ?"
+        val whereArgs = if (timeFormat.isNullOrBlank()) null else arrayOf(timeFormat)
+        database.query(tableName, arrayOf(LoggerX.COLUMN_ID), where, whereArgs, null, null, null).use { c ->
+            while (c.moveToNext()) {
+                ids += c.getInt(0)
+            }
+        }
+        if (ids.isEmpty()) return 0
+        database.beginTransaction()
+        return try {
+            ids.chunked(200).forEach { group ->
+                val placeholders = group.joinToString(",") { "?" }
+                database.delete(IMAGE_TABLE, "scope_id IN ($placeholders)", group.map { it.toString() }.toTypedArray())
+            }
+            val rows = database.delete(tableName, where, whereArgs)
+            database.setTransactionSuccessful()
+            rows
+        } finally {
+            runCatching { database.endTransaction() }
+        }
+    }
+
+    fun clearAllLogs(): Boolean {
+        return runCatching {
+            getAllLogTables().forEach { table ->
+                val ids = mutableListOf<Int>()
+                database.query(table, arrayOf(LoggerX.COLUMN_ID), null, null, null, null, null).use { c ->
+                    while (c.moveToNext()) {
+                        ids += c.getInt(0)
+                    }
+                }
                 ids.chunked(200).forEach { group ->
                     val placeholders = group.joinToString(",") { "?" }
-                    database.delete(chunkTable, "log_id IN ($placeholders)", group.map { it.toString() }.toTypedArray())
+                    database.delete(IMAGE_TABLE, "scope_id IN ($placeholders)", group.map { it.toString() }.toTypedArray())
                 }
+                database.delete(table, null, null)
             }
-            database.delete(tableName, "$COLUMN_TIME < ?", arrayOf(this))
-        } ?: run {
-            database.delete(chunkTable, null, null)
-            database.delete(tableName, null, null)
-        }
-
-    }
-
-    /**
-     * 5. 删除所有表的数据 (遍历数据库中所有以 _log 结尾的表)
-     */
-    fun clearAllLogs(): Boolean {
-        try {
-            val cursor = database.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%_log'", null)
-            cursor?.use {
-                while (it.moveToNext()) {
-                    val tableName = it.getString(0)
-                    database.delete("${tableName}_img_chunk", null, null)
-                    database.delete(tableName, null, null)
-                }
-            }
-            return true
-        } catch (e: Exception) {
-            Log.e(LoggerX.TAG, "clearAllLogs: ${e.message}")
-            e.printStackTrace()
-            return false
+            true
+        }.getOrElse {
+            Log.e(LoggerX.TAG, "clearAllLogs failed: ${it.message}")
+            false
         }
     }
-
 
     private var autoCleanFuture: java.util.concurrent.ScheduledFuture<*>? = null
     private var autoCleanBySizeFuture: java.util.concurrent.ScheduledFuture<*>? = null
 
-    /**
-     * 自动执行清理任务：基于数据库中实际存在的日期范围进行清理
-     * @param retentionDays 保留天数 (例如: 7)
-     */
     fun startAutoCleanByDate(retentionDays: Int) {
         if (retentionDays <= 0) return
-
-        // 如果已经开启，先停止之前的任务
         autoCleanFuture?.cancel(false)
-
-        // 立即执行一次，然后每隔 24 小时执行一次
         autoCleanFuture = scheduledExecutor.scheduleWithFixedDelay({
-            try {
-                performCleanupByDateRange(retentionDays)
-            } catch (e: Exception) {
-                Log.e(LoggerX.TAG, "Auto clean by date failed: ${e.message}")
-            }
+            runCatching { performCleanupByDateRange(retentionDays) }
+                .onFailure { Log.e(LoggerX.TAG, "Auto clean by date failed: ${it.message}") }
+        }, 0, 24, TimeUnit.HOURS)
+    }
+
+    fun startAutoCleanBySize(maxSizeMb: Double, cleanSizeMb: Double) {
+        if (maxSizeMb <= 0 || cleanSizeMb <= 0) return
+        autoCleanBySizeFuture?.cancel(false)
+        autoCleanBySizeFuture = scheduledExecutor.scheduleWithFixedDelay({
+            runCatching { performCleanupBySize(maxSizeMb, cleanSizeMb) }
+                .onFailure { Log.e(LoggerX.TAG, "Auto clean by size failed: ${it.message}") }
         }, 0, 24, TimeUnit.HOURS)
     }
 
     private fun performCleanupByDateRange(days: Int) {
         getAllLogTables().forEach { tableName ->
-            // 1. 查询所有不重复的日期（YYYY-MM-DD），并升序排列
             val distinctDates = mutableListOf<String>()
-            val sql = "SELECT DISTINCT substr($COLUMN_TIME, 1, 10) as log_date FROM $tableName ORDER BY log_date ASC"
-            database.rawQuery(sql, null)?.use { cursor ->
+            val sql = "SELECT DISTINCT substr(${LoggerX.COLUMN_TIME}, 1, 10) as log_date FROM $tableName ORDER BY log_date ASC"
+            database.rawQuery(sql, null).use { cursor ->
                 while (cursor.moveToNext()) {
-                    val date = cursor.getString(0)
-                    if (date != null) {
-                        distinctDates.add(date)
-                    }
+                    cursor.getString(0)?.let(distinctDates::add)
                 }
             }
-
-            // 2. 如果日期数量超过保留天数，则进行清理
             if (distinctDates.size > days) {
-                val deleteCount = distinctDates.size - days
-                // 获取需要删除的最后一个日期（第 deleteCount 个日期）
-                val cutoffDate = distinctDates[deleteCount - 1]
-
-                // 3. 删除该日期及其之前的所有数据
-                // 使用 substr(time, 1, 10) <= ? 来确保删除包含 cutoffDate 在内的所有数据
-                val rows = database.delete(tableName, "substr($COLUMN_TIME, 1, 10) <= ?", arrayOf(cutoffDate))
-                Log.d(LoggerX.TAG, "Auto clean by date for $tableName: deleted $rows rows on or before $cutoffDate. Total dates: ${distinctDates.size}, retention: $days")
+                val cutoffDate = distinctDates[distinctDates.size - days - 1]
+                deleteLogsByDate(tableName, cutoffDate)
             }
         }
     }
 
-    /**
-     * 自动执行清理任务：基于数据库文件大小进行清理
-     * @param maxSizeMb 数据库文件最大允许大小 (MB)
-     * @param cleanSizeMb 每次清理尝试减少的大小 (MB)，实际清理量可能因数据分布和 VACUUM 行为而异
-     */
-    fun startAutoCleanBySize(maxSizeMb: Double, cleanSizeMb: Double) {
-        if (maxSizeMb <= 0 || cleanSizeMb <= 0) return
-
-        // 如果已经开启，先停止之前的任务
-        autoCleanBySizeFuture?.cancel(false)
-
-        // 立即执行一次，然后每隔 24 小时执行一次
-        autoCleanBySizeFuture = scheduledExecutor.scheduleWithFixedDelay({
-            try {
-                performCleanupBySize(maxSizeMb, cleanSizeMb)
-            } catch (e: Exception) {
-                Log.e(LoggerX.TAG, "Auto clean by size failed: ${e.message}")
-            }
-        }, 0, 24, TimeUnit.HOURS)
+    private fun deleteLogsByDate(tableName: String, cutoffDate: String) {
+        val ids = mutableListOf<Int>()
+        database.query(
+            tableName,
+            arrayOf(LoggerX.COLUMN_ID),
+            "substr(${LoggerX.COLUMN_TIME},1,10) <= ?",
+            arrayOf(cutoffDate),
+            null,
+            null,
+            null
+        ).use { c ->
+            while (c.moveToNext()) ids += c.getInt(0)
+        }
+        ids.chunked(200).forEach { group ->
+            val placeholders = group.joinToString(",") { "?" }
+            database.delete(IMAGE_TABLE, "scope_id IN ($placeholders)", group.map { it.toString() }.toTypedArray())
+        }
+        database.delete(tableName, "substr(${LoggerX.COLUMN_TIME},1,10) <= ?", arrayOf(cutoffDate))
     }
 
     private fun performCleanupBySize(maxSizeMb: Double, cleanSizeMb: Double) {
         val dbFile = ContextHolder.getAppContext().getDatabasePath(LogDbHelper.DB_NAME)
         if (!dbFile.exists()) return
-
         var currentSizeMb = dbFile.length().toDouble() / (1024.0 * 1024.0)
-        Log.d(LoggerX.TAG, "Current DB size: $currentSizeMb MB, Max size: $maxSizeMb MB")
-
-        if (currentSizeMb > maxSizeMb) {
-            Log.d(LoggerX.TAG, "DB size exceeds limit, starting cleanup...")
-            val targetSizeMb = maxSizeMb - cleanSizeMb // 目标大小，尝试清理到这个大小以下
-
-            var cleanedTotalRows = 0
-            var iteration = 0
-            val maxIterations = 10 // 避免无限循环
-
-            while (currentSizeMb > targetSizeMb && iteration < maxIterations) {
-                iteration++
-                var rowsDeletedInIteration = 0
-                getAllLogTables().forEach { tableName ->
-                    // 每次删除 1000 条最旧的数据
-                    val deleteSql = "DELETE FROM $tableName WHERE $COLUMN_ID IN (SELECT $COLUMN_ID FROM $tableName ORDER BY $COLUMN_TIME ASC LIMIT 1000)"
-                    database.execSQL(deleteSql)
-                    rowsDeletedInIteration += 1000 // 假设删除了 1000 条，实际可能少于
-                }
-                cleanedTotalRows += rowsDeletedInIteration
-
-                // 重新获取文件大小
-                currentSizeMb = dbFile.length().toDouble() / (1024.0 * 1024.0)
-                Log.d(LoggerX.TAG, "Iteration $iteration: Deleted $rowsDeletedInIteration rows. New DB size: $currentSizeMb MB")
-
-                // 如果文件大小没有明显变化，可能需要 VACUUM，但这里避免使用
-                // 实际文件大小可能不会立即减少，但逻辑上旧数据已被删除
+        if (currentSizeMb <= maxSizeMb) return
+        val target = maxSizeMb - cleanSizeMb
+        var loop = 0
+        while (currentSizeMb > target && loop < 10) {
+            loop++
+            getAllLogTables().forEach { table ->
+                val sql = "DELETE FROM $table WHERE ${LoggerX.COLUMN_ID} IN (SELECT ${LoggerX.COLUMN_ID} FROM $table ORDER BY ${LoggerX.COLUMN_TIME} ASC LIMIT 500)"
+                database.execSQL(sql)
             }
-            Log.d(LoggerX.TAG, "Auto clean by size finished. Total rows deleted: $cleanedTotalRows. Final DB size: $currentSizeMb MB")
+            currentSizeMb = dbFile.length().toDouble() / (1024.0 * 1024.0)
         }
     }
 
-
-    private fun getAllLogTables(): List<String> {
-        val tables = mutableListOf<String>()
-        val cursor = database.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%_log'", null)
-        cursor?.use {
-            while (it.moveToNext()) tables.add(it.getString(0))
+    private fun prepareImageWrite(
+        scopeTag: String,
+        level: String,
+        classTag: String,
+        method: String,
+        message: String,
+        imageBytes: ByteArray,
+        compressor: IImageCompressor,
+        options: ImageCompressionOptions,
+        sourceTask: ImageWriteTask? = null
+    ): PreparedImageWrite {
+        val tableName = getTableName(scopeTag)
+        ensureTable(tableName)
+        var compressionLog = "origin=${imageBytes.size}B"
+        return try {
+            val encoded = ImageLogCodec.encode(
+                source = imageBytes,
+                compressor = compressor,
+                options = options,
+                maxFieldBytes = ImageLogCodec.MAX_INPUT_BYTES
+            ) ?: throw ImageLogWriteException(
+                message = "Image encode failed or exceeds max payload",
+                compressionLog = "$compressionLog|encode_failed"
+            )
+            compressionLog = encoded.compressionLog
+            PreparedImageWrite(
+                tableName = tableName,
+                level = level,
+                classTag = classTag,
+                method = method,
+                message = message,
+                encoded = encoded,
+                sourceTask = sourceTask
+            )
+        } catch (e: Exception) {
+            Log.e(LoggerX.TAG, "prepareImageWrite failed: ${e.message}")
+            throw if (e is ImageLogWriteException) e else ImageLogWriteException(
+                "Image encode transaction failed",
+                compressionLog,
+                e
+            )
         }
-        return tables
     }
 
-    // 辅助方法：拼接 SQL 条件
-    private fun addFilter(sb: StringBuilder, condition: String, arg: String, args: MutableList<String>) {
-        if (sb.isNotEmpty()) sb.append(" AND ")
-        sb.append(condition)
-        args.add(arg)
+    @Synchronized
+    private fun insertPreparedImageBatch(preparedBatch: List<PreparedImageWrite>): Boolean {
+        if (preparedBatch.isEmpty()) return true
+        database.beginTransaction()
+        return try {
+            preparedBatch.forEach { prepared ->
+                ensureTable(prepared.tableName)
+                val scopeRowId = database.insertOrThrow(prepared.tableName, null, ContentValues().apply {
+                    put(LoggerX.COLUMN_LEVEL, prepared.level)
+                    put(LoggerX.COLUMN_TAG, prepared.classTag)
+                    put(LoggerX.COLUMN_METHOD, prepared.method)
+                    put(LoggerX.COLUMN_MESSAGE, prepared.message)
+                    put(LoggerX.COLUMN_THUMBNAIL, prepared.encoded.thumbnailBase64)
+                    put(LoggerX.COLUMN_IMAGE_ID, -1)
+                })
+                val imageId = database.insertOrThrow(IMAGE_TABLE, null, ContentValues().apply {
+                    put("scope_id", scopeRowId.toInt())
+                    put(LoggerX.COLUMN_MEDIA_TYPE, prepared.encoded.mediaType)
+                    put(LoggerX.COLUMN_COMPRESSED_IMAGE, prepared.encoded.compressedImage)
+                    put("width", prepared.encoded.width)
+                    put("height", prepared.encoded.height)
+                    put(LoggerX.COLUMN_ORIGINAL_SIZE, prepared.encoded.originalBytes)
+                    put(LoggerX.COLUMN_COMPRESSED_SIZE, prepared.encoded.compressedBytes)
+                    put(LoggerX.COLUMN_COMPRESSION_RATIO, prepared.encoded.compressionRatio)
+                    put(LoggerX.COLUMN_CHECKSUM_SHA256, sha256(prepared.encoded.compressedImage))
+                })
+                database.update(
+                    prepared.tableName,
+                    ContentValues().apply { put(LoggerX.COLUMN_IMAGE_ID, imageId.toInt()) },
+                    "${LoggerX.COLUMN_ID}=?",
+                    arrayOf(scopeRowId.toString())
+                )
+            }
+            database.setTransactionSuccessful()
+            true
+        } finally {
+            runCatching { database.endTransaction() }
+        }
     }
 
-    private fun cursorToMap(it: android.database.Cursor, includeImagePayload: Boolean): Map<String, Any> {
+    private fun stagePreparedBatchWithMmap(preparedBatch: List<PreparedImageWrite>): File? {
+        if (preparedBatch.isEmpty()) return null
+        val payload = ByteArrayOutputStream()
+        DataOutputStream(payload).use { out ->
+            out.writeInt(preparedBatch.size)
+            preparedBatch.forEach { item ->
+                out.writeUTF(item.tableName)
+                out.writeUTF(item.level)
+                out.writeUTF(item.classTag)
+                out.writeUTF(item.method)
+                out.writeUTF(item.message)
+                out.writeUTF(item.encoded.mediaType)
+                out.writeInt(item.encoded.width)
+                out.writeInt(item.encoded.height)
+                out.writeInt(item.encoded.originalBytes)
+                out.writeInt(item.encoded.compressedBytes)
+                out.writeDouble(item.encoded.compressionRatio)
+                out.writeUTF(item.encoded.thumbnailBase64)
+                out.writeInt(item.encoded.compressedImage.size)
+                out.write(item.encoded.compressedImage)
+            }
+        }
+        val bytes = payload.toByteArray()
+        val bufferDir = File(ContextHolder.getAppContext().cacheDir, "loggerx-mmap").apply { mkdirs() }
+        val bufferFile = File(bufferDir, "image-batch-${System.nanoTime()}.bin")
+        RandomAccessFile(bufferFile, "rw").use { file ->
+            file.setLength(bytes.size.toLong())
+            file.channel.use { channel ->
+                val mapped = channel.map(FileChannel.MapMode.READ_WRITE, 0, bytes.size.toLong())
+                mapped.put(bytes)
+                mapped.force()
+            }
+        }
+        return bufferFile
+    }
+
+    private fun queryImageBlob(tableName: String, logId: Int): ByteArray? {
+        val sql = """
+            SELECT i.${LoggerX.COLUMN_COMPRESSED_IMAGE}
+            FROM $tableName s
+            LEFT JOIN $IMAGE_TABLE i ON s.${LoggerX.COLUMN_IMAGE_ID} = i.id
+            WHERE s.${LoggerX.COLUMN_ID}=?
+            LIMIT 1
+        """.trimIndent()
+        return runCatching {
+            getReadOnlyDatabase().rawQuery(sql, arrayOf(logId.toString())).use { c ->
+                if (c.moveToFirst()) c.getBlob(0) else null
+            }
+        }.getOrNull()
+    }
+
+    private fun cursorToMap(c: Cursor, includeImagePayload: Boolean): Map<String, Any> {
+        val imageId = c.getInt(c.getColumnIndexOrThrow(LoggerX.COLUMN_IMAGE_ID))
+        val isImage = imageId > 0
         val map = mutableMapOf<String, Any>(
-            COLUMN_ID to it.getInt(it.getColumnIndexOrThrow(COLUMN_ID)),
-            COLUMN_TIME to it.getString(it.getColumnIndexOrThrow(COLUMN_TIME)),
-            COLUMN_LEVEL to it.getString(it.getColumnIndexOrThrow(COLUMN_LEVEL)),
-            COLUMN_TAG to it.getString(it.getColumnIndexOrThrow(COLUMN_TAG)),
-            COLUMN_METHOD to it.getString(it.getColumnIndexOrThrow(COLUMN_METHOD))
+            LoggerX.COLUMN_ID to c.getInt(c.getColumnIndexOrThrow(LoggerX.COLUMN_ID)),
+            LoggerX.COLUMN_TIME to c.getString(c.getColumnIndexOrThrow(LoggerX.COLUMN_TIME)),
+            LoggerX.COLUMN_LEVEL to c.getString(c.getColumnIndexOrThrow(LoggerX.COLUMN_LEVEL)).orEmpty(),
+            LoggerX.COLUMN_TAG to c.getString(c.getColumnIndexOrThrow(LoggerX.COLUMN_TAG)).orEmpty(),
+            LoggerX.COLUMN_METHOD to c.getString(c.getColumnIndexOrThrow(LoggerX.COLUMN_METHOD)).orEmpty(),
+            LoggerX.COLUMN_MESSAGE to c.getString(c.getColumnIndexOrThrow(LoggerX.COLUMN_MESSAGE)).orEmpty(),
+            LoggerX.COLUMN_THUMBNAIL to c.getString(c.getColumnIndexOrThrow(LoggerX.COLUMN_THUMBNAIL)).orEmpty(),
+            LoggerX.COLUMN_IMAGE_ID to imageId,
+            LoggerX.COLUMN_IS_IMAGE to if (isImage) 1 else 0
         )
-        val message = it.getString(it.getColumnIndexOrThrow(COLUMN_MESSAGE)).orEmpty()
-        val imageIndex = it.getColumnIndex(COLUMN_IS_IMAGE)
-        val isImage = imageIndex >= 0 && it.getInt(imageIndex) == 1
-        map[COLUMN_IS_IMAGE] = if (isImage) 1 else 0
         if (isImage) {
-            val mimeIndex = it.getColumnIndex(COLUMN_MIME_TYPE)
-            val thumbIndex = it.getColumnIndex(COLUMN_THUMBNAIL)
-            val chunkIndex = it.getColumnIndex(COLUMN_IMAGE_CHUNKED)
-            map[COLUMN_MIME_TYPE] = if (mimeIndex >= 0) it.getString(mimeIndex).orEmpty() else ""
-            map[COLUMN_THUMBNAIL] = if (thumbIndex >= 0) it.getString(thumbIndex).orEmpty() else ""
-            map[COLUMN_IMAGE_CHUNKED] = if (chunkIndex >= 0) it.getInt(chunkIndex) else 0
+            map[LoggerX.COLUMN_MEDIA_TYPE] = c.getString(c.getColumnIndexOrThrow(LoggerX.COLUMN_MEDIA_TYPE)).orEmpty()
+            var originalSize = c.getInt(c.getColumnIndexOrThrow(LoggerX.COLUMN_ORIGINAL_SIZE))
+            var compressedSize = c.getInt(c.getColumnIndexOrThrow(LoggerX.COLUMN_COMPRESSED_SIZE))
+            var compressionRatio = c.getDouble(c.getColumnIndexOrThrow(LoggerX.COLUMN_COMPRESSION_RATIO))
+            map[LoggerX.COLUMN_CHECKSUM_SHA256] = c.getString(c.getColumnIndexOrThrow(LoggerX.COLUMN_CHECKSUM_SHA256)).orEmpty()
             if (includeImagePayload) {
-                val payloadIndex = it.getColumnIndex(COLUMN_IMAGE_PAYLOAD)
-                map[COLUMN_IMAGE_PAYLOAD] = if (payloadIndex >= 0) it.getString(payloadIndex).orEmpty() else ""
-                map[COLUMN_MESSAGE] = message
-            } else {
-                map[COLUMN_MESSAGE] = message.ifEmpty { "[IMAGE]" }
+                val blob = queryImageBlobByImageId(imageId)
+                map[LoggerX.COLUMN_COMPRESSED_IMAGE] = blob?.let { Base64.encodeToString(it, Base64.NO_WRAP) }.orEmpty()
+                if (blob != null && compressedSize <= 0) {
+                    compressedSize = blob.size
+                }
+                if (originalSize > 0 && compressedSize > 0 && compressionRatio <= 0.0) {
+                    compressionRatio = compressedSize.toDouble() / originalSize.toDouble()
+                }
             }
-        } else {
-            map[COLUMN_MESSAGE] = message
+            map[LoggerX.COLUMN_ORIGINAL_SIZE] = originalSize
+            map[LoggerX.COLUMN_COMPRESSED_SIZE] = compressedSize
+            map[LoggerX.COLUMN_COMPRESSION_RATIO] = compressionRatio
         }
         return map
     }
 
+    private fun estimateRowBytes(row: Map<String, Any>): Int {
+        return row.entries.sumOf { (key, value) ->
+            key.length * 2 + value.toString().length * 2
+        }.coerceAtLeast(64)
+    }
+
     private fun tableExists(tableName: String): Boolean {
         if (existedTables.contains(tableName)) return true
-        return try {
-            val cursor = database.rawQuery(
+        val exists = runCatching {
+            database.rawQuery(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
                 arrayOf(tableName)
+            ).use { c -> c.moveToFirst() && c.getInt(0) > 0 }
+        }.getOrDefault(false)
+        if (exists) {
+            ensureTable(tableName)
+        }
+        return exists
+    }
+
+    private fun getReadOnlyDatabase(): SQLiteDatabase {
+        readOnlyDatabase?.let { db ->
+            if (db.isOpen) return db
+        }
+        synchronized(readDbLock) {
+            readOnlyDatabase?.let { db ->
+                if (db.isOpen) return db
+            }
+            val dbPath = ContextHolder.getAppContext().getDatabasePath(LogDbHelper.DB_NAME).absolutePath
+            val db = SQLiteDatabase.openDatabase(
+                dbPath,
+                null,
+                SQLiteDatabase.OPEN_READONLY
             )
-            val exists = cursor.use {
-                it.moveToFirst() && it.getInt(0) > 0
-            }
-            if (exists) {
-                existedTables.add(tableName)
-                ensureTableSchema(tableName)
-            }
-            exists
-        } catch (_: Exception) {
-            false
+            applyPragma(db, "PRAGMA query_only=ON")
+            applyPragma(db, "PRAGMA cache_size=-64000")
+            readOnlyDatabase = db
+            return db
         }
     }
 
-    private fun ensureTableSchema(tableName: String) {
-        val cached = tableColumnsCache[tableName]
-        if (cached != null &&
-            cached.containsAll(
-                listOf(
-                    COLUMN_IS_IMAGE,
-                    COLUMN_MIME_TYPE,
-                    COLUMN_THUMBNAIL,
-                    COLUMN_IMAGE_PAYLOAD,
-                    COLUMN_IMAGE_CHUNKED
-                )
-            )
-        ) {
-            return
+    private fun applyPragma(db: SQLiteDatabase, sql: String) {
+        runCatching {
+            db.rawQuery(sql, null).use { }
+        }.recoverCatching {
+            db.execSQL(sql)
         }
-        val columns = mutableSetOf<String>()
-        database.rawQuery("PRAGMA table_info($tableName)", null).use { cursor ->
-            while (cursor.moveToNext()) {
-                columns.add(cursor.getString(cursor.getColumnIndexOrThrow("name")))
-            }
-        }
-        addColumnIfMissing(tableName, columns, COLUMN_IS_IMAGE, "INTEGER DEFAULT 0")
-        addColumnIfMissing(tableName, columns, COLUMN_MIME_TYPE, "TEXT")
-        addColumnIfMissing(tableName, columns, COLUMN_THUMBNAIL, "TEXT")
-        addColumnIfMissing(tableName, columns, COLUMN_IMAGE_PAYLOAD, "TEXT")
-        addColumnIfMissing(tableName, columns, COLUMN_IMAGE_CHUNKED, "INTEGER DEFAULT 0")
-        database.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_time_image ON $tableName($COLUMN_TIME, $COLUMN_IS_IMAGE)")
-        database.execSQL(
-            """
-            CREATE TABLE IF NOT EXISTS ${tableName}_img_chunk (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                log_id INTEGER NOT NULL,
-                chunk_index INTEGER NOT NULL,
-                chunk_data TEXT NOT NULL
-            )
-            """.trimIndent()
-        )
-        database.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_img_chunk ON ${tableName}_img_chunk(log_id, chunk_index)")
-        tableColumnsCache[tableName] = columns
     }
 
-    private fun addColumnIfMissing(tableName: String, existing: MutableSet<String>, column: String, definition: String) {
-        if (existing.contains(column)) return
-        database.execSQL("ALTER TABLE $tableName ADD COLUMN $column $definition")
-        existing.add(column)
+    private fun getAllLogTables(): List<String> {
+        val tables = mutableListOf<String>()
+        database.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%_log'", null).use { c ->
+            while (c.moveToNext()) tables += c.getString(0)
+        }
+        return tables
     }
 
+    private fun sha256(bytes: ByteArray): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
+        return digest.joinToString("") { "%02x".format(it) }
+    }
 }

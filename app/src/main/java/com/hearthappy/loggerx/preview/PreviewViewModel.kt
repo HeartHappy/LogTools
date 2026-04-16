@@ -3,6 +3,7 @@ package com.hearthappy.loggerx.preview
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.hearthappy.log.core.DataQueryService
 import com.hearthappy.log.core.LogScopeProxy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -17,7 +18,12 @@ import kotlinx.coroutines.withContext
 
 data class PreviewLogUiState(
     val logs: List<Map<String, Any>> = emptyList(),
-    val loading: Boolean = false
+    val loading: Boolean = false,
+    val progressPercent: Int = 0,
+    val progressStage: String = "",
+    val canCancel: Boolean = false,
+    val keepInBackground: Boolean = true,
+    val hasMore: Boolean = false
 )
 
 data class DistinctValuesUiState(
@@ -27,6 +33,7 @@ data class DistinctValuesUiState(
 )
 
 class PreviewViewModel(private val scopeProxy: LogScopeProxy) : ViewModel() {
+    private var currentQueryHandle: DataQueryService.QueryHandle? = null
     private val _appliedState = MutableStateFlow(FilterState.EMPTY)
     val appliedState: StateFlow<FilterState> = _appliedState.asStateFlow()
 
@@ -89,6 +96,24 @@ class PreviewViewModel(private val scopeProxy: LogScopeProxy) : ViewModel() {
         _distinctValues.value = DistinctValuesUiState()
     }
 
+    fun setBackgroundContinue(enabled: Boolean) {
+        currentQueryHandle?.setBackgroundContinue(enabled)
+        _logUiState.update { it.copy(keepInBackground = enabled) }
+    }
+
+    fun cancelCurrentQuery() {
+        currentQueryHandle?.cancel()
+        currentQueryHandle = null
+        _logUiState.update {
+            it.copy(
+                loading = false,
+                canCancel = false,
+                progressPercent = 0,
+                progressStage = "cancelled"
+            )
+        }
+    }
+
     private fun refreshDistinctValues() {
         viewModelScope.launch {
             _distinctValues.update { it.copy(loading = true, values = emptyMap(), disabledCategories = emptySet()) }
@@ -122,28 +147,84 @@ class PreviewViewModel(private val scopeProxy: LogScopeProxy) : ViewModel() {
     }
 
     private fun queryWithState(state: FilterState) {
-        viewModelScope.launch {
-            _logUiState.update { it.copy(loading = true) }
-            val params = FilterQueryHelper.buildQueryParams(state, page = 1, limit = 100)
-            val queried = withContext(Dispatchers.IO) {
-                scopeProxy.queryLogs(
-                    time = params.time,
-                    tag = params.tag,
-                    level = params.level,
-                    method = params.method,
-                    isImage = params.isImage,
-                    keyword = null,
-                    isAsc = false,
-                    page = params.page,
-                    limit = params.limit
-                )
-            }
-            // 多选时底层 SQL 无法直接 in 查询，补一层内存过滤确保组合结果准确
-            val result = queried.filter { FilterQueryHelper.matches(it, state) }
-            _logUiState.value = PreviewLogUiState(
-                logs = result,
-                loading = false
+        currentQueryHandle?.cancel()
+        val keepInBackground = _logUiState.value.keepInBackground
+        _logUiState.update {
+            it.copy(
+                loading = true,
+                progressPercent = 0,
+                progressStage = "queued",
+                canCancel = true,
+                keepInBackground = keepInBackground
             )
+        }
+        val params = FilterQueryHelper.buildQueryParams(state, page = 1, limit = 100)
+        currentQueryHandle = scopeProxy.queryLogsAsync(
+            time = params.time,
+            tag = params.tag,
+            level = params.level,
+            method = params.method,
+            isImage = params.isImage,
+            keyword = null,
+            isAsc = false,
+            page = params.page,
+            limit = params.limit?:100,
+            listener = object : DataQueryService.QueryListener {
+                override fun onProgress(progress: DataQueryService.QueryProgress) {
+                    viewModelScope.launch {
+                        _logUiState.update {
+                            it.copy(
+                                loading = progress.percent < 100,
+                                progressPercent = progress.percent,
+                                progressStage = progress.stage,
+                                canCancel = progress.percent < 100
+                            )
+                        }
+                    }
+                }
+
+                override fun onSuccess(result: DataQueryService.QueryResult) {
+                    viewModelScope.launch {
+                        val filtered = result.pageResult.rows.filter { FilterQueryHelper.matches(it, state) }
+                        _logUiState.value = _logUiState.value.copy(
+                            logs = filtered,
+                            loading = false,
+                            progressPercent = 100,
+                            progressStage = if (result.fromCache) "cache-hit" else "done",
+                            canCancel = false,
+                            hasMore = result.pageResult.hasMore
+                        )
+                    }
+                }
+
+                override fun onError(queryId: String, throwable: Throwable) {
+                    viewModelScope.launch {
+                        _logUiState.update {
+                            it.copy(
+                                loading = false,
+                                canCancel = false,
+                                progressStage = "error"
+                            )
+                        }
+                        _toastEvent.tryEmit("日志查询失败: ${throwable.message.orEmpty()}")
+                    }
+                }
+
+                override fun onCancelled(queryId: String) {
+                    viewModelScope.launch {
+                        _logUiState.update {
+                            it.copy(
+                                loading = false,
+                                canCancel = false,
+                                progressPercent = 0,
+                                progressStage = "cancelled"
+                            )
+                        }
+                    }
+                }
+            }
+        ).also {
+            it.setBackgroundContinue(keepInBackground)
         }
     }
 

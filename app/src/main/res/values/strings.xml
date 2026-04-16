@@ -18,4 +18,9 @@
     <string name="image_rotate_desc">旋转图片</string>
     <string name="image_download_desc">下载图片</string>
     <string name="image_close_desc">关闭预览</string>
+    <string name="query_progress_title">日志查询进行中</string>
+    <string name="query_cancel">取消</string>
+    <string name="query_background_continue">后台继续</string>
+    <string name="query_loading_stage">正在准备查询</string>
+    <string name="query_has_more">还有更多数据可继续分页加载</string>
 </resources>

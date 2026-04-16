@@ -31,11 +31,55 @@
         app:layout_constraintBottom_toBottomOf="@+id/swipeRefreshLayout"
         app:layout_constraintTop_toTopOf="@+id/swipeRefreshLayout">
 
-        <ProgressBar
-            android:id="@+id/pbLoading"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center" />
+            android:layout_gravity="center"
+            android:layout_margin="24dp"
+            android:background="@android:color/white"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/tvQueryTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/query_progress_title"
+                android:textColor="@android:color/black"
+                android:textStyle="bold" />
+
+            <ProgressBar
+                android:id="@+id/pbLoading"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:max="100"
+                tools:progress="45" />
+
+            <TextView
+                android:id="@+id/tvQueryProgress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/query_loading_stage"
+                android:textColor="@android:color/black"
+                tools:text="querying 45%" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchBackgroundContinue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/query_background_continue" />
+
+            <Button
+                android:id="@+id/btnCancelQuery"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/query_cancel" />
+        </LinearLayout>
     </FrameLayout>
     <ImageButton
         android:id="@+id/btnSimplify"

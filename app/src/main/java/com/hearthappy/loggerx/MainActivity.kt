@@ -45,8 +45,8 @@ class MainActivity: AppCompatActivity() {
         // 启动循环插入日志
 //        handler.post(logRunnable)
 
-        val dbFileSize = LoggerX.getDbFileSize()
-        Log.i(TAG, "onCreate: $dbFileSize")
+//        val dbFileSize = LoggerX.getDbFileSize()
+//        Log.i(TAG, "onCreate: $dbFileSize")
     }
 
     override fun onDestroy() {

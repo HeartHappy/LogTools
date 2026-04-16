@@ -75,6 +75,37 @@ class LogScopeProxy(private val scope: String): LogScope {
         )
     }
 
+    fun queryLogsAsync(
+        time: String? = null,
+        tag: String? = null,
+        level: String? = null,
+        method: String? = null,
+        isImage: Boolean? = null,
+        keyword: String? = null,
+        isAsc: Boolean = false,
+        page: Int = 1,
+        limit: Int = 100,
+        includeImagePayload: Boolean = false,
+        listener: DataQueryService.QueryListener
+    ): DataQueryService.QueryHandle {
+        return DataQueryService.queryAsync(
+            scopeTag = scope,
+            request = DataQueryService.QueryRequest(
+                time = time,
+                tag = tag,
+                level = level,
+                method = method,
+                isImage = isImage,
+                keyword = keyword,
+                sortAsc = isAsc,
+                page = page,
+                pageSize = limit,
+                includeImagePayload = includeImagePayload
+            ),
+            listener = listener
+        )
+    }
+
     fun getDistinctValues(columnName: String): List<String> {
         return LogDbManager.getDistinctValues(scope, columnName)
     }
@@ -91,36 +122,30 @@ class LogScopeProxy(private val scope: String): LogScope {
         imageBytes: ByteArray,
         mimeType: String = "image/jpeg",
         message: String = "image-log",
-        quality: Int = ImageLogCodec.DEFAULT_TARGET_RATIO_PERCENT
+        quality: Int = ImageLogCodec.DEFAULT_WEBP_QUALITY
     ): Boolean {
         val startNs = System.nanoTime()
-        val encodeStartNs = startNs
-        val encoded = ImageLogCodec.encode(imageBytes, quality) ?: run {
-            val totalMs = nsToMs(System.nanoTime() - startNs)
-            Log.w(LoggerX.TAG, "Image encode failed or exceeds max payload")
-            recordImageWritePerf(totalMs, totalMs, 0L, false)
-            return false
-        }
-        val encodeMs = nsToMs(System.nanoTime() - encodeStartNs)
         val stackTraceInfo = LogContextCollector.getStackTraceInfo()
         val classTag = stackTraceInfo.className
         val methodName = LogFormatter.format(stackTraceInfo)
-        val dbStartNs = System.nanoTime()
-        val result = LogDbManager.insertImageLog(
-            scopeTag = scope,
-            level = LogLevel.INFO.value,
-            classTag = classTag,
-            method = methodName,
-            message = "$message [${encoded.mimeType}] ${encoded.originalBytes}B -> ${encoded.compressedBytes}B",
-            mimeType = encoded.mimeType,
-            thumbnailBase64 = encoded.thumbnailBase64,
-            payloadBase64 = encoded.base64Payload,
-            chunked = encoded.chunked,
-            chunks = encoded.chunks
-        )
-        val dbMs = nsToMs(System.nanoTime() - dbStartNs)
+        val result = try {
+            ImageLogger.logAsync(
+                imageBlob = imageBytes,
+                meta = ImageLogger.ImageLogMeta(
+                    scopeTag = scope,
+                    level = LogLevel.INFO.value,
+                    classTag = classTag,
+                    method = methodName,
+                    message = "$message [$mimeType]",
+                    quality = quality
+                )
+            ).accepted
+        } catch (e: ImageLogWriteException) {
+            Log.e(LoggerX.TAG, "Image write failed: ${e.message}, compressionLog=${e.compressionLog}")
+            false
+        }
         val totalMs = nsToMs(System.nanoTime() - startNs)
-        recordImageWritePerf(totalMs, encodeMs, dbMs, result)
+        recordImageWritePerf(totalMs, 0L, 0L, result)
         return result
     }
 
@@ -128,7 +153,7 @@ class LogScopeProxy(private val scope: String): LogScope {
         bitmap: Bitmap,
         mimeType: String = "image/jpeg",
         message: String = "image-log",
-        quality: Int = ImageLogCodec.DEFAULT_TARGET_RATIO_PERCENT
+        quality: Int = ImageLogCodec.DEFAULT_WEBP_QUALITY
     ): Boolean {
         val out = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
@@ -138,14 +163,14 @@ class LogScopeProxy(private val scope: String): LogScope {
     fun getImageWritePerfSnapshot(): Map<String, Any> {
         val count = imageWriteCount.get().coerceAtLeast(1L)
         val total = imageWriteTotalMs.get()
-        return mapOf(
+        return mapOf<String, Any>(
             "count" to imageWriteCount.get(),
             "failedCount" to imageWriteFailedCount.get(),
             "encodeOver200msCount" to imageEncodeOver200MsCount.get(),
             "over200msCount" to imageWriteOver200MsCount.get(),
             "avgTotalMs" to (total.toDouble() / count.toDouble()),
             "maxTotalMs" to imageWriteMaxMs.get()
-        )
+        ) + LogDbManager.getImageAsyncMetrics()
     }
 
     fun loadImageBase64(logId: Int): String? {
@@ -174,9 +199,9 @@ class LogScopeProxy(private val scope: String): LogScope {
         // 异步查询并导出，避免 UI 卡顿
         Thread {
             val logs = if (exportAll) {
-                LogDbManager.queryLogsAdvanced(scope, limit = null)
+                LogDbManager.queryLogsAdvanced(scope, limit = null, includeImagePayload = true)
             } else {
-                LogDbManager.queryLogsAdvanced(scope, limit = limit)
+                LogDbManager.queryLogsAdvanced(scope, limit = limit, includeImagePayload = true)
             }
             val file = LogExportManager.export(ContextHolder.getAppContext(), scope, logs, format, onProgress)
 

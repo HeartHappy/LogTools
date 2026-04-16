@@ -45,6 +45,12 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         swipeRefreshLayout.setOnRefreshListener {
             viewModel.refreshAppliedLogs()
         }
+        switchBackgroundContinue.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.setBackgroundContinue(isChecked)
+        }
+        btnCancelQuery.setOnClickListener {
+            viewModel.cancelCurrentQuery()
+        }
 
         btnSimplify.setOnClickListener {
             it.isSelected = !it.isSelected
@@ -65,6 +71,7 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
             rvLogList.layoutManager = LinearLayoutManager(requireContext())
             rvLogList.adapter = logAdapter
             rvLogList.setHasFixedSize(true)
+            switchBackgroundContinue.isChecked = true
             viewModel.loadInitialLogs()
         }
     }
@@ -77,6 +84,10 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
                         loadingOverlay.isVisible = state.loading
                         swipeRefreshLayout.isRefreshing = false
                         btnFilter.isEnabled = !state.loading
+                        btnCancelQuery.isEnabled = state.canCancel
+                        switchBackgroundContinue.isChecked = state.keepInBackground
+                        pbLoading.progress = state.progressPercent
+                        tvQueryProgress.text = "${state.progressStage} ${state.progressPercent}%"
                         logAdapter.submitLogs(state.logs)
                     }
                 }

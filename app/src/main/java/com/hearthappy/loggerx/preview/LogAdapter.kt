@@ -5,19 +5,21 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.hearthappy.basic.ext.show
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.LogLevel
 import com.hearthappy.loggerx.databinding.ItemLogListBinding
 
 class LogAdapter : ListAdapter<Map<String, Any>, LogAdapter.LogViewHolder>(LogDiffCallback) {
 
+    var isSimplified=false
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LogViewHolder {
         val binding = ItemLogListBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return LogViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: LogViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        holder.bind(getItem(position),isSimplified)
     }
 
     fun submitLogs(logs: List<Map<String, Any>>) {
@@ -26,13 +28,20 @@ class LogAdapter : ListAdapter<Map<String, Any>, LogAdapter.LogViewHolder>(LogDi
     }
 
     class LogViewHolder(private val binding: ItemLogListBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(data: Map<String, Any>) = with(binding) {
+        fun bind(data: Map<String, Any>, isSimplified: Boolean) = with(binding) {
             tvTime.text = data[LoggerX.COLUMN_TIME].toString()
             tvLevel.text = data[LoggerX.COLUMN_LEVEL].toString()
             level2Color(data[LoggerX.COLUMN_LEVEL].toString())
             tvTag.text = data[LoggerX.COLUMN_TAG].toString()
             tvMethod.text = data[LoggerX.COLUMN_METHOD].toString()
             tvMessage.text = data[LoggerX.COLUMN_MESSAGE].toString()
+            tvTagTitle.show(!isSimplified)
+            tvTag.show(!isSimplified)
+            tvTime.show(!isSimplified)
+            tvLevel.show(!isSimplified)
+            tvMethodTitle.show(!isSimplified)
+            tvMethod.show(!isSimplified)
+            tvMessageTitle.show(!isSimplified)
         }
 
         private fun ItemLogListBinding.level2Color(level: String) {

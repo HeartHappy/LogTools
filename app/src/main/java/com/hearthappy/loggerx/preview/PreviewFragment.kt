@@ -47,6 +47,11 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         swipeRefreshLayout.setOnRefreshListener {
             viewModel.refreshAppliedLogs()
         }
+        btnSimplify.setOnClickListener {
+            it.isSelected = !it.isSelected
+            logAdapter.isSimplified = it.isSelected
+            logAdapter.notifyItemRangeChanged(0, logAdapter.itemCount)
+        }
     }
 
     override fun FragmentPreviewBinding.initView(savedInstanceState: Bundle?) {

@@ -37,7 +37,15 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center" />
     </FrameLayout>
-
+    <ImageButton
+        android:id="@+id/btnSimplify"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/simplify"
+        android:src="@android:drawable/ic_menu_more"
+        app:layout_constraintEnd_toStartOf="@+id/btnFilter"
+        app:layout_constraintTop_toTopOf="parent" />
     <ImageButton
         android:id="@+id/btnFilter"
         android:layout_width="40dp"

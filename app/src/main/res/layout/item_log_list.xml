@@ -16,6 +16,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="TAG:"
+        android:visibility="gone"
         android:textColor="@color/white"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -24,6 +25,7 @@
         android:id="@+id/tvTag"
         style="@style/style_item_text"
         android:layout_width="wrap_content"
+        android:visibility="gone"
         app:layout_constraintStart_toEndOf="@+id/tvTagTitle"
         app:layout_constraintTop_toTopOf="parent"
         tools:text="MainActivity" />
@@ -31,6 +33,7 @@
     <TextView
         android:id="@+id/tvTime"
         style="@style/style_item_text"
+        android:visibility="gone"
         android:layout_width="wrap_content"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
@@ -38,6 +41,7 @@
 
     <TextView
         android:id="@+id/tvLevel"
+        android:visibility="gone"
         style="@style/style_item_text"
         android:layout_width="wrap_content"
         app:layout_constraintStart_toEndOf="@+id/tvTag"
@@ -46,6 +50,7 @@
 
     <TextView
         android:id="@+id/tvMethodTitle"
+        android:visibility="gone"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="METHOD:"
@@ -55,6 +60,7 @@
     <TextView
         android:id="@+id/tvMethod"
         style="@style/style_item_text"
+        android:visibility="gone"
         android:layout_width="0dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/tvMethodTitle"
@@ -65,6 +71,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="MESSAGE:"
+        android:visibility="gone"
         android:textColor="@color/white"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tvMethod" />

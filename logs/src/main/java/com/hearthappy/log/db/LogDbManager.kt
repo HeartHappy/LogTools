@@ -21,6 +21,12 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 object LogDbManager {
+    data class ImagePreviewData(
+        val mimeType: String,
+        val thumbnailBase64: String?,
+        val compressedBase64: String?
+    )
+
     private val dbHelper = LogDbHelper(ContextHolder.getAppContext())
     private val database = dbHelper.writableDatabase
 
@@ -188,6 +194,62 @@ object LogDbManager {
         } catch (e: Exception) {
             Log.e(LoggerX.TAG, "loadImageBase64 failed: ${e.message}")
             null
+        }
+    }
+
+    fun loadImagePreviewData(scopeTag: String, logId: Int): ImagePreviewData? {
+        val tableName = getTableName(scopeTag)
+        if (!tableExists(tableName)) return null
+        ensureTableSchema(tableName)
+        val mimeType: String
+        val thumbnail: String?
+        val isChunked: Boolean
+        val inlinePayload: String?
+        try {
+            database.query(
+                tableName,
+                arrayOf(COLUMN_IS_IMAGE, COLUMN_MIME_TYPE, COLUMN_THUMBNAIL, COLUMN_IMAGE_CHUNKED, COLUMN_IMAGE_PAYLOAD),
+                "$COLUMN_ID = ?",
+                arrayOf(logId.toString()),
+                null,
+                null,
+                null,
+                "1"
+            ).use { c ->
+                if (!c.moveToFirst()) return null
+                if (c.getInt(c.getColumnIndexOrThrow(COLUMN_IS_IMAGE)) != 1) return null
+                mimeType = c.getString(c.getColumnIndexOrThrow(COLUMN_MIME_TYPE)).orEmpty().ifBlank { "image/webp" }
+                thumbnail = c.getString(c.getColumnIndexOrThrow(COLUMN_THUMBNAIL))
+                isChunked = c.getInt(c.getColumnIndexOrThrow(COLUMN_IMAGE_CHUNKED)) == 1
+                inlinePayload = c.getString(c.getColumnIndexOrThrow(COLUMN_IMAGE_PAYLOAD))
+            }
+        } catch (e: Exception) {
+            Log.e(LoggerX.TAG, "loadImagePreviewData failed: ${e.message}")
+            return null
+        }
+        if (!isChunked) {
+            return ImagePreviewData(mimeType, thumbnail, inlinePayload)
+        }
+        val chunkTable = "${tableName}_img_chunk"
+        val builder = StringBuilder()
+        return try {
+            database.query(
+                chunkTable,
+                arrayOf("chunk_data"),
+                "log_id = ?",
+                arrayOf(logId.toString()),
+                null,
+                null,
+                "chunk_index ASC"
+            ).use { c ->
+                while (c.moveToNext()) {
+                    builder.append(c.getString(0).orEmpty())
+                }
+            }
+            ImagePreviewData(mimeType, thumbnail, builder.toString().ifEmpty { null })
+        } catch (e: Exception) {
+            Log.e(LoggerX.TAG, "loadImagePreviewData chunk load failed: ${e.message}")
+            ImagePreviewData(mimeType, thumbnail, null)
         }
     }
 

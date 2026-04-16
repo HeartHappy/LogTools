@@ -8,6 +8,12 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.concurrent.atomic.AtomicLong
 
+data class ImagePreviewData(
+    val mimeType: String,
+    val thumbnailBase64: String?,
+    val compressedBase64: String?
+)
+
 /**
  * Scope代理类：封装不同等级的日志调用
  */
@@ -102,11 +108,11 @@ class LogScopeProxy(private val scope: String): LogScope {
         imageBytes: ByteArray,
         mimeType: String = "image/jpeg",
         message: String = "image-log",
-        quality: Int = 70
+        quality: Int = ImageLogCodec.DEFAULT_TARGET_RATIO_PERCENT
     ): Boolean {
         val startNs = System.nanoTime()
         val encodeStartNs = startNs
-        val encoded = ImageLogCodec.encode(imageBytes, mimeType, quality) ?: run {
+        val encoded = ImageLogCodec.encode(imageBytes, quality) ?: run {
             val totalMs = nsToMs(System.nanoTime() - startNs)
             Log.w(LoggerX.TAG, "Image encode failed or exceeds max payload")
             recordImageWritePerf(totalMs, totalMs, 0L, false)
@@ -135,7 +141,12 @@ class LogScopeProxy(private val scope: String): LogScope {
         return result
     }
 
-    fun image(bitmap: Bitmap, mimeType: String = "image/jpeg", message: String = "image-log", quality: Int = 70): Boolean {
+    fun image(
+        bitmap: Bitmap,
+        mimeType: String = "image/jpeg",
+        message: String = "image-log",
+        quality: Int = ImageLogCodec.DEFAULT_TARGET_RATIO_PERCENT
+    ): Boolean {
         val out = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         return image(out.toByteArray(), mimeType, message, quality)
@@ -147,7 +158,8 @@ class LogScopeProxy(private val scope: String): LogScope {
         return mapOf(
             "count" to imageWriteCount.get(),
             "failedCount" to imageWriteFailedCount.get(),
-            "over100msCount" to imageWriteOver100MsCount.get(),
+            "encodeOver200msCount" to imageEncodeOver200MsCount.get(),
+            "over200msCount" to imageWriteOver200MsCount.get(),
             "avgTotalMs" to (total.toDouble() / count.toDouble()),
             "maxTotalMs" to imageWriteMaxMs.get()
         )
@@ -159,6 +171,15 @@ class LogScopeProxy(private val scope: String): LogScope {
 
     fun loadImageMimeType(logId: Int): String? {
         return LogDbManager.loadImageMimeType(scope, logId)
+    }
+
+    fun loadImagePreviewData(logId: Int): ImagePreviewData? {
+        val data = LogDbManager.loadImagePreviewData(scope, logId) ?: return null
+        return ImagePreviewData(
+            mimeType = data.mimeType,
+            thumbnailBase64 = data.thumbnailBase64,
+            compressedBase64 = data.compressedBase64
+        )
     }
     // 2. 导出并分享
     fun doExportAndShare(exportAll: Boolean = false, limit: Int = 1000, onProgress: ((Int) -> Unit)? = null) {
@@ -190,10 +211,13 @@ class LogScopeProxy(private val scope: String): LogScope {
         if (!success) {
             imageWriteFailedCount.incrementAndGet()
         }
+        if (encodeMs > 200L) {
+            imageEncodeOver200MsCount.incrementAndGet()
+        }
         imageWriteTotalMs.addAndGet(totalMs)
         imageWriteMaxMs.updateAndGet { old -> maxOf(old, totalMs) }
-        if (totalMs > 100L) {
-            imageWriteOver100MsCount.incrementAndGet()
+        if (totalMs > 200L) {
+            imageWriteOver200MsCount.incrementAndGet()
             Log.w(LoggerX.TAG, "Image log write slow: total=${totalMs}ms, encode=${encodeMs}ms, db=${dbMs}ms")
         } else {
             Log.i(LoggerX.TAG, "Image log write perf: total=${totalMs}ms, encode=${encodeMs}ms, db=${dbMs}ms")
@@ -205,7 +229,8 @@ class LogScopeProxy(private val scope: String): LogScope {
     companion object {
         private val imageWriteCount = AtomicLong(0)
         private val imageWriteFailedCount = AtomicLong(0)
-        private val imageWriteOver100MsCount = AtomicLong(0)
+        private val imageEncodeOver200MsCount = AtomicLong(0)
+        private val imageWriteOver200MsCount = AtomicLong(0)
         private val imageWriteTotalMs = AtomicLong(0)
         private val imageWriteMaxMs = AtomicLong(0)
     }

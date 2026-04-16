@@ -1,6 +1,7 @@
 package com.hearthappy.loggerx.preview
 
 import android.content.ContentValues
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
@@ -16,13 +17,21 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.hearthappy.log.LoggerX
+import com.hearthappy.log.core.ImagePreviewData
 import com.hearthappy.log.core.LogScopeProxy
 import com.hearthappy.loggerx.databinding.DialogImagePreviewBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import java.io.OutputStream
 
+
+/**
+ * Created Date: 2026/4/16
+ * @author ChenRui
+ * ClassDescription：预览大图
+ */
 class ImagePreviewDialogFragment : DialogFragment() {
     private var _binding: DialogImagePreviewBinding? = null
     private val binding get() = _binding!!
@@ -68,22 +77,88 @@ class ImagePreviewDialogFragment : DialogFragment() {
         val logId = requireArguments().getInt(ARG_LOG_ID)
         binding.pbLoadingImage.isVisible = true
         lifecycleScope.launch {
-            val pair = withContext(Dispatchers.IO) {
+            val previewData = withContext(Dispatchers.IO) {
                 val scopeProxy: LogScopeProxy = LoggerX.getOutputters()[outputterIndex].scope.getProxy()
-                val mime = scopeProxy.loadImageMimeType(logId).orEmpty().ifBlank { "image/jpeg" }
-                val base64 = scopeProxy.loadImageBase64(logId)
-                Pair(mime, base64)
+                scopeProxy.loadImagePreviewData(logId)
             }
-            currentMime = pair.first
-            val bytes = runCatching { Base64.decode(pair.second, Base64.DEFAULT) }.getOrNull()
-            binding.pbLoadingImage.isVisible = false
-            if (bytes == null) {
+            if (previewData == null) {
+                binding.pbLoadingImage.isVisible = false
                 Toast.makeText(requireContext(), "图片数据读取失败", Toast.LENGTH_SHORT).show()
                 return@launch
             }
-            currentBytes = bytes
-            binding.ivPreview.setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+            currentMime = previewData.mimeType.ifBlank { "image/webp" }
+            showThumbnail(previewData)
+            val loadedCompressed = loadCompressedWithTimeout(previewData)
+            binding.pbLoadingImage.isVisible = false
+            if (!loadedCompressed && currentBytes == null) {
+                Toast.makeText(requireContext(), "图片加载失败，已回退缩略图", Toast.LENGTH_SHORT).show()
+            }
         }
+    }
+
+    private suspend fun showThumbnail(previewData: ImagePreviewData) {
+        val thumbBytes = decodeBase64(previewData.thumbnailBase64)
+        if (thumbBytes == null) return
+        val thumbBitmap = withContext(Dispatchers.IO) { decodeBitmapSafely(thumbBytes, THUMB_MAX_SIDE) }
+        if (thumbBitmap != null) {
+            currentBytes = thumbBytes
+            binding.ivPreview.setImageBitmap(thumbBitmap)
+        }
+    }
+
+    private suspend fun loadCompressedWithTimeout(previewData: ImagePreviewData): Boolean {
+        val compressedBytes = withContext(Dispatchers.IO) {
+            withTimeoutOrNull(IMAGE_LOAD_TIMEOUT_MS) {
+                decodeBase64(previewData.compressedBase64)
+            }
+        }
+        if (compressedBytes == null) {
+            Toast.makeText(requireContext(), "压缩图加载超时，展示缩略图", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        val bitmap = withContext(Dispatchers.IO) { decodeBitmapSafely(compressedBytes, PREVIEW_MAX_SIDE) }
+        if (bitmap == null) {
+            Toast.makeText(requireContext(), "压缩图解码失败，展示缩略图", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        currentBytes = compressedBytes
+        binding.ivPreview.setImageBitmap(bitmap)
+        return true
+    }
+
+    private fun decodeBase64(base64: String?): ByteArray? {
+        if (base64.isNullOrBlank()) return null
+        return runCatching { Base64.decode(base64, Base64.DEFAULT) }.getOrNull()
+    }
+
+    private fun decodeBitmapSafely(bytes: ByteArray, maxSide: Int): Bitmap? {
+        return try {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+            val sampleSize = calculateInSampleSize(bounds.outWidth, bounds.outHeight, maxSide)
+            val options = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.RGB_565
+            }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+        } catch (_: OutOfMemoryError) {
+            null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun calculateInSampleSize(width: Int, height: Int, maxSide: Int): Int {
+        var inSample = 1
+        var w = width
+        var h = height
+        while (w > maxSide || h > maxSide) {
+            inSample *= 2
+            w /= 2
+            h /= 2
+        }
+        return inSample.coerceAtLeast(1)
     }
 
     private fun saveToGallery(bytes: ByteArray, mimeType: String) {
@@ -115,12 +190,16 @@ class ImagePreviewDialogFragment : DialogFragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        binding.ivPreview.setImageDrawable(null)
         _binding = null
     }
 
     companion object {
         private const val ARG_OUTPUTTER_INDEX = "arg_outputter_index"
         private const val ARG_LOG_ID = "arg_log_id"
+        private const val IMAGE_LOAD_TIMEOUT_MS = 3_000L
+        private const val PREVIEW_MAX_SIDE = 2_048
+        private const val THUMB_MAX_SIDE = 512
 
         fun newInstance(outputterIndex: Int, logId: Int): ImagePreviewDialogFragment {
             return ImagePreviewDialogFragment().apply {

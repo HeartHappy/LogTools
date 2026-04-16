@@ -21,10 +21,8 @@ internal object LogOutputterManager {
     internal fun initDefaultOutputters(outputConfig: OutputConfig) {
         val isLog = outputConfig.isLog
         val isWriteDatabase = outputConfig.isWriteDatabase
-        val isWriteFile = outputConfig.fileConfig?.isWriteFile ?: false
         val logInterceptorAdapter = object: LogInterceptor {
             override fun isDebug(): Boolean = isLog
-            override fun isWriteFile(): Boolean = isWriteFile
             override fun isWriteDatabase(): Boolean = isWriteDatabase
         }
         outputterMap[LoggerX.COMMON.getTag()] = LogOutputter(scope = LoggerX.COMMON, logInterceptorAdapter)

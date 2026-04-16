@@ -38,25 +38,43 @@
         android:gravity="center"
         android:orientation="horizontal">
 
-        <Button
+        <ImageButton
             android:id="@+id/btnZoomOut"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/image_zoom_out" />
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/image_zoom_out_desc"
+            android:paddingTop="8dp"
+            android:paddingEnd="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_zoom_out_24"
+            android:tint="?attr/colorOnSurface" />
 
-        <Button
+        <ImageButton
             android:id="@+id/btnZoomIn"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginStart="8dp"
-            android:text="@string/image_zoom_in" />
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/image_zoom_in_desc"
+            android:paddingTop="8dp"
+            android:paddingEnd="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_zoom_in_24"
+            android:tint="?attr/colorOnSurface" />
 
-        <Button
+        <ImageButton
             android:id="@+id/btnRotate"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginStart="8dp"
-            android:text="@string/image_rotate" />
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/image_rotate_desc"
+            android:paddingTop="8dp"
+            android:paddingEnd="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_rotate_right_24"
+            android:tint="?attr/colorOnSurface" />
     </LinearLayout>
 
     <LinearLayout
@@ -66,17 +84,29 @@
         android:gravity="end"
         android:orientation="horizontal">
 
-        <Button
+        <ImageButton
             android:id="@+id/btnDownload"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/image_download" />
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/image_download_desc"
+            android:paddingTop="8dp"
+            android:paddingEnd="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_download_24"
+            android:tint="?attr/colorOnSurface" />
 
-        <Button
+        <ImageButton
             android:id="@+id/btnClose"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginStart="8dp"
-            android:text="@string/image_close" />
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/image_close_desc"
+            android:paddingTop="8dp"
+            android:paddingEnd="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_close_24"
+            android:tint="?attr/colorOnSurface" />
     </LinearLayout>
 </LinearLayout>

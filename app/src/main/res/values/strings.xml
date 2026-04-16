@@ -13,4 +13,9 @@
     <string name="image_rotate">旋转</string>
     <string name="image_download">下载</string>
     <string name="image_close">关闭</string>
+    <string name="image_zoom_in_desc">放大图片</string>
+    <string name="image_zoom_out_desc">缩小图片</string>
+    <string name="image_rotate_desc">旋转图片</string>
+    <string name="image_download_desc">下载图片</string>
+    <string name="image_close_desc">关闭预览</string>
 </resources>

@@ -6,11 +6,11 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 object LogShareManager {
-    fun shareLogFile(context: Context, file: File) {
+    fun shareLogFile(context: Context, file: File, mimeType: String = "text/csv") {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/csv"
+            type = mimeType
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
@@ -35,7 +35,7 @@ object LogShareManager {
         }
 
         val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-            type = "text/csv"
+            type = "text/*"
             putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }

@@ -1,24 +1,14 @@
 package com.hearthappy.log.core
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Handler
-import android.os.HandlerThread
 import android.util.Log
-import androidx.core.content.ContextCompat
 import com.hearthappy.log.LoggerX
-import com.hearthappy.log.core.LogFileManager.getDiskPath
 import com.hearthappy.log.db.LogDbManager
 import com.hearthappy.log.interceptor.LogInterceptor
-import com.hearthappy.log.strategy.DiskLogStrategy
-import com.hearthappy.log.strategy.LogStrategy
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import java.io.File
 import java.io.StringReader
 import java.io.StringWriter
-import java.util.Date
 import javax.xml.transform.OutputKeys
 import javax.xml.transform.Source
 import javax.xml.transform.TransformerException
@@ -27,19 +17,6 @@ import javax.xml.transform.stream.StreamResult
 import javax.xml.transform.stream.StreamSource
 
 internal class LogImpl(private var scope: LogScope, private val interceptor: LogInterceptor): ILog {
-
-
-    private val logStrategy: LogStrategy by lazy { initLogStrategy() }
-
-
-    private fun initLogStrategy(): DiskLogStrategy {
-        val folder =  getDiskPath() + File.separatorChar + "logger"
-        val ht = HandlerThread("AndroidFileLogger.$folder")
-        ht.start()
-        val handler: Handler = DiskLogStrategy.WriteHandler(ht.looper, folder, MAX_BYTES, scope.getTag())
-        return DiskLogStrategy(handler)
-    }
-
 
     override fun d(message: String, vararg args: Any?) {
         log(Log.DEBUG, null, message, args)
@@ -129,35 +106,6 @@ internal class LogImpl(private var scope: LogScope, private val interceptor: Log
                 Log.ASSERT -> Log.wtf(tag, msg)
             }
         }
-        if (interceptor.isWriteFile()) {
-            val builder = StringBuilder()
-            builder.append(LogFormatter.DATE_FORMAT.format(Date()))
-            builder.append(SEPARATOR)
-
-            // level
-            builder.append(logLevel)
-            builder.append(SEPARATOR)
-
-            // tag
-            builder.append(tag)
-            builder.append(SEPARATOR)
-
-            // method
-            builder.append(methodName)
-            builder.append(SEPARATOR)
-
-            //format message
-            builder.append(logMsg)
-
-            // new line
-            builder.append(NEW_LINE)
-            if (ContextCompat.checkSelfPermission(ContextHolder.getAppContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
-                logStrategy.log(level, tag, builder.toString())
-            } else {
-                e(tag, "No file write permission")
-            }
-        }
-
         if (interceptor.isWriteDatabase()) {
             LogDbManager.insertLog(scopeTag = scope.getTag(), level = logLevel, classTag = tag, method = methodName, message = logMsg)
         }
@@ -179,11 +127,8 @@ internal class LogImpl(private var scope: LogScope, private val interceptor: Log
     }
 
     companion object {
-        private const val SEPARATOR = ","
         private const val JSON_INDENT = 2
-        private val NEW_LINE = System.lineSeparator() //        private const val NEW_LINE_REPLACEMENT = " <br> "
-
-        const val MAX_BYTES = 100 * 1024 // 500K averages to a 4000 lines per file
+        private val NEW_LINE = System.lineSeparator()
 
     }
 }

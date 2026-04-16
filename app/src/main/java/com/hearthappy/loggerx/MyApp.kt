@@ -8,8 +8,7 @@ class MyApp: Application() {
 
     override fun onCreate() {
         super.onCreate() //日志框架初始化
-        //        LogTools.install(applicationContext)
-        LoggerX.init(this/* OutputConfig(fileConfig = FileConfig(isWriteFile = true, externalCacheDir?.absolutePath?.plus("/hearthappy")))*/)
+        LoggerX.init(this)
         LoggerX.registerScope(LogInterceptorAdapter(), CUSTOM_SCOPE)
 
         // 开启按日期自动清理，保留 7 天数据

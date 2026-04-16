@@ -1,7 +1,6 @@
 package com.hearthappy.loggerx
 
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.os.Handler
@@ -10,11 +9,8 @@ import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.FileProvider
 import com.hearthappy.log.LoggerX
 import com.hearthappy.loggerx.preview.PreviewActivity
-import com.hjq.permissions.Permission
-import com.hjq.permissions.XXPermissions
 import org.json.JSONObject
 import java.util.Random
 
@@ -65,44 +61,38 @@ class MainActivity: AppCompatActivity() {
 
 
     fun outLogAndFile(view: View) {
-        XXPermissions.with(this@MainActivity).permission(Permission.WRITE_EXTERNAL_STORAGE).request { permissions, all ->
+        LoggerX.COMMON.d("common test")
+        LoggerX.COMMON.d("common onCreate d")
+        LoggerX.COMMON.i("common onCreate i")
+        LoggerX.COMMON.w("common onCreate w")
 
-            if (all) {
-                LoggerX.COMMON.d("common test")
-                LoggerX.COMMON.d("common onCreate d")
-                LoggerX.COMMON.i("common onCreate i")
-                LoggerX.COMMON.w("common onCreate w")
+        LoggerX.IMPORTANT.d("important onCreate d 挺不错的，哈哈")
 
-                LoggerX.IMPORTANT.d("important onCreate d 挺不错的，哈哈")
-
-                LoggerX.KERNEL.d("kernel onCreate d")
-                LoggerX.KERNEL.w("kernel onResume w")
-                LoggerX.KERNEL.i("kernel onCreate1 i")
-                LoggerX.KERNEL.v("kernel onCreate3 v")
-                LoggerX.ERROR.e("kernel onCreate2 e", Throwable("runtime error"))
-                LoggerX.KERNEL.i("${LoggerX.KERNEL.getDirectory()}")
-                val jSONObject = JSONObject().apply {
-                    put("name", "张三")
-                    put("age", 18)
-                    put("sex", "男")
-                }
-                LoggerX.COMMON.json(jSONObject.toString())
-                MyApp.CUSTOM_SCOPE.d("自定义的作用域日志  测试！！！")
-
-                //写入图片
-                val resource = BitmapFactory.decodeResource(resources, R.mipmap.test_face)
-                LoggerX.COMMON.image(resource, message = "裁剪图：")
-                val resource1 = BitmapFactory.decodeResource(resources, R.mipmap.test1)
-                LoggerX.COMMON.image(resource1, message = "壁纸图")
-                val resource2 = BitmapFactory.decodeResource(resources, R.mipmap.test2)
-                LoggerX.COMMON.image(resource2, message = "壁纸图")
-            }
+        LoggerX.KERNEL.d("kernel onCreate d")
+        LoggerX.KERNEL.w("kernel onResume w")
+        LoggerX.KERNEL.i("kernel onCreate1 i")
+        LoggerX.KERNEL.v("kernel onCreate3 v")
+        LoggerX.ERROR.e("kernel onCreate2 e", Throwable("runtime error"))
+        val jSONObject = JSONObject().apply {
+            put("name", "张三")
+            put("age", 18)
+            put("sex", "男")
         }
+        LoggerX.COMMON.json(jSONObject.toString())
+        MyApp.CUSTOM_SCOPE.d("自定义的作用域日志  测试！！！")
+
+        val resource = BitmapFactory.decodeResource(resources, R.mipmap.test_face)
+        LoggerX.COMMON.image(resource, message = "裁剪图：")
+        val resource1 = BitmapFactory.decodeResource(resources, R.mipmap.test1)
+        LoggerX.COMMON.image(resource1, message = "壁纸图")
+        val resource2 = BitmapFactory.decodeResource(resources, R.mipmap.test2)
+        LoggerX.COMMON.image(resource2, message = "壁纸图")
     }
 
     fun deleteLogFile(view: View) {
-        LoggerX.KERNEL.deleteOldestSingleFile()
-        LoggerX.COMMON.clearAllFiles()
+        val kernelRows = LoggerX.KERNEL.deleteLogs()
+        val commonRows = LoggerX.COMMON.deleteLogs()
+        Toast.makeText(this, "已删除 KERNEL:$kernelRows, COMMON:$commonRows", Toast.LENGTH_SHORT).show()
     }
 
     fun deleteAllLogFile(view: View) {
@@ -111,34 +101,8 @@ class MainActivity: AppCompatActivity() {
     }
 
     fun openFile(view: View) {
-        val csvFile = LoggerX.KERNEL.getListFiles()?.last() // 2. 打开CSV文件的核心方法
-        csvFile?.let { file ->
-            try { // 生成Content URI（适配Android 7.0+）
-                val fileUri = FileProvider.getUriForFile(applicationContext, "${applicationContext.packageName}.fileprovider", file)
-
-                // 构建打开CSV的Intent
-                val intent = Intent(Intent.ACTION_VIEW).apply { // 设置URI和MIME类型（CSV核心类型）
-                    setDataAndType(fileUri, "text/csv") // 兼容部分系统识别不到text/csv的情况
-                    putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("text/csv", "text/plain")) // 授予临时读取权限（关键：系统应用需要权限访问文件）
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) // 避免多个应用时的弹窗（可选，如需指定默认应用则注释）
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-
-                // 检查是否有应用能处理该Intent（避免崩溃）
-                val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
-                if (resolveInfo != null) {
-                    startActivity(intent)
-                } else { // 无可用应用的兜底提示
-                    Toast.makeText(this, "未找到可打开CSV文件的应用", Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) { // 捕获所有异常（如权限、URI错误、文件损坏等）
-                Log.e("OpenCSV", "打开CSV文件失败", e)
-                Toast.makeText(this, "打开失败：${e.message}", Toast.LENGTH_SHORT).show()
-            }
-        } ?: run { // 无有效CSV文件的提示
-            Toast.makeText(this, "未找到Kernel目录下的有效CSV文件", Toast.LENGTH_SHORT).show()
-        }
-
+        LoggerX.KERNEL.doExportAndShare(exportAll = false, limit = 500)
+        Toast.makeText(this, "已从数据库导出最近日志并调用分享", Toast.LENGTH_SHORT).show()
     }
 
     fun queryDBLogs(view: View) {

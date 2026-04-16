@@ -7,6 +7,7 @@ package com.hearthappy.log.core
  * ClassDescription：输出配置
  *
  */
-data class OutputConfig(var isLog: Boolean = true,var  isWriteDatabase: Boolean = true,var fileConfig: FileConfig? = null)
-
-data class FileConfig(var isWriteFile: Boolean = false, var diskPath: String?)
+data class OutputConfig(
+    var isLog: Boolean = true,
+    var isWriteDatabase: Boolean = true
+)

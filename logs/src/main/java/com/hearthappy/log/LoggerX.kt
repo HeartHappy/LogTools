@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.Context
 import com.hearthappy.log.core.ContextHolder
 import com.hearthappy.log.core.LogExportManager
-import com.hearthappy.log.core.LogFileManager
 import com.hearthappy.log.core.LogOutputter
 import com.hearthappy.log.core.LogOutputterManager
 import com.hearthappy.log.core.LogScope
@@ -12,7 +11,6 @@ import com.hearthappy.log.core.LogScopeProxy
 import com.hearthappy.log.core.OutputConfig
 import com.hearthappy.log.db.LogDbManager
 import com.hearthappy.log.interceptor.LogInterceptor
-import java.io.File
 
 
 /**
@@ -71,10 +69,7 @@ class LoggerX {
          */
         fun init(context: Context, outputConfig: OutputConfig = OutputConfig()) {
             ContextHolder.init(context as Application)
-            LogFileManager.init(outputConfig.fileConfig)
             LogOutputterManager.initDefaultOutputters(outputConfig)
-
-
         }
 
         fun getScopes(): List<String> {
@@ -87,25 +82,26 @@ class LoggerX {
 
 
         /**
-         * 清空所有日志,包括文件和数据库
+         * 清空所有日志（数据库）
          */
-        fun clear() {
-            LogFileManager.clearAll()
-            LogDbManager.clearAllLogs()
-        }
-
-        fun getAllFiles(): List<File>? {
-            return LogFileManager.getAllFiles()
+        fun clear(): Boolean {
+            return LogDbManager.clearAllLogs()
         }
 
         /**
          * 导出并分享所有作用域的日志文件
          * @param exportAll 是否导出所有记录（true：不限制数量，false：按 limit 导出）
          * @param limit 每个作用域导出的条数限制（仅在 exportAll 为 false 时生效）
+         * @param format 导出格式（CSV/TXT）
          * @param onProgress 总体导出进度回调 (0..100)
          */
-        fun exportAndShareAll(exportAll: Boolean = true, limit: Int = 1000, onProgress: ((Int) -> Unit)? = null) {
-            LogExportManager.exportAll(exportAll, limit, onProgress)
+        fun exportAndShareAll(
+            exportAll: Boolean = true,
+            limit: Int = 1000,
+            format: LogExportManager.ExportFormat = LogExportManager.ExportFormat.CSV,
+            onProgress: ((Int) -> Unit)? = null
+        ) {
+            LogExportManager.exportAll(exportAll, limit, format, onProgress)
         }
 
         fun getDbFileSize(): Double {

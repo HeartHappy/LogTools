@@ -5,7 +5,6 @@ import android.util.Log
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.db.LogDbManager
 import java.io.ByteArrayOutputStream
-import java.io.File
 import java.util.concurrent.atomic.AtomicLong
 
 data class ImagePreviewData(
@@ -47,22 +46,6 @@ class LogScopeProxy(private val scope: String): LogScope {
      */
     private fun output(level: LogLevel, message: String, throwable: Throwable? = null) {
         LogOutputterManager.getOutputter(scope).output(level, message, throwable)
-    }
-
-    fun getListFiles(): List<File>? {
-        return LogFileManager.getListFile(scope)
-    }
-
-    fun getDirectory(): String? {
-        return LogFileManager.getDirectory()
-    }
-
-    fun clearAllFiles(): Boolean {
-      return  LogFileManager.clear(scope)
-    }
-
-    fun deleteOldestSingleFile(): Boolean {
-        return LogFileManager.deleteOldestSingleFile(scope)
     }
 
     fun queryLogs(
@@ -181,8 +164,13 @@ class LogScopeProxy(private val scope: String): LogScope {
             compressedBase64 = data.compressedBase64
         )
     }
-    // 2. 导出并分享
-    fun doExportAndShare(exportAll: Boolean = false, limit: Int = 1000, onProgress: ((Int) -> Unit)? = null) {
+    // 从数据库导出临时文件并分享
+    fun doExportAndShare(
+        exportAll: Boolean = false,
+        limit: Int = 1000,
+        format: LogExportManager.ExportFormat = LogExportManager.ExportFormat.CSV,
+        onProgress: ((Int) -> Unit)? = null
+    ) {
         // 异步查询并导出，避免 UI 卡顿
         Thread {
             val logs = if (exportAll) {
@@ -190,10 +178,10 @@ class LogScopeProxy(private val scope: String): LogScope {
             } else {
                 LogDbManager.queryLogsAdvanced(scope, limit = limit)
             }
-            val file = LogExportManager.exportToCsv(ContextHolder.getAppContext(), scope, logs, onProgress)
+            val file = LogExportManager.export(ContextHolder.getAppContext(), scope, logs, format, onProgress)
 
             file?.let {
-                LogShareManager.shareLogFile(ContextHolder.getAppContext(), it)
+                LogShareManager.shareLogFile(ContextHolder.getAppContext(), it, format.mimeType)
             }
         }.start()
     }

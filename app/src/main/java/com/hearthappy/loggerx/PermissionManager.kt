@@ -32,7 +32,7 @@ open class PermissionManager {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     XXPermissions.isGranted(ctx, Permission.MANAGE_EXTERNAL_STORAGE)
                 } else {
-                    XXPermissions.isGranted(ctx, Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE)
+                    XXPermissions.isGranted(ctx, Permission.READ_EXTERNAL_STORAGE)
                 }
             }
 
@@ -79,7 +79,7 @@ open class PermissionManager {
                         with.permission(Permission.MANAGE_EXTERNAL_STORAGE)
                         with.interceptor(object : IPermissionInterceptor {})
                     } else {
-                        with.permission(Permission.READ_EXTERNAL_STORAGE).permission(Permission.WRITE_EXTERNAL_STORAGE)
+                        with.permission(Permission.READ_EXTERNAL_STORAGE)
                     }
                 }
 

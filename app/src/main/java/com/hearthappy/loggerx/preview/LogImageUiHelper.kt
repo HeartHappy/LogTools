@@ -8,6 +8,10 @@ import com.hearthappy.log.LoggerX
 object LogImageUiHelper {
     private const val BASE64_IMAGE_PREFIX = "data:image/"
 
+
+    /**
+     * 判断日志是否包含图片
+     */
     fun isImageLog(log: Map<String, Any>): Boolean {
         val byColumn = log[LoggerX.COLUMN_IS_IMAGE]?.toString() == "1"
         if (byColumn) return true

@@ -53,10 +53,7 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
         """.trimIndent()
         db.execSQL(sql)
         ensureScopeTableSchema(db, tableName)
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_time ON $tableName(${LoggerX.COLUMN_TIME} DESC)")
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_file_path ON $tableName(${LoggerX.COLUMN_FILE_PATH})")
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_level_time ON $tableName(${LoggerX.COLUMN_LEVEL}, ${LoggerX.COLUMN_TIME} DESC)")
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_tag_time ON $tableName(${LoggerX.COLUMN_TAG}, ${LoggerX.COLUMN_TIME} DESC)")
+        ensureScopeIndexes(db, tableName)
     }
 
     private fun ensureScopeTableSchema(db: SQLiteDatabase, tableName: String) {
@@ -121,10 +118,14 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
         db.execSQL(sql)
         db.execSQL("DROP TABLE IF EXISTS $tableName")
         db.execSQL("ALTER TABLE $newTable RENAME TO $tableName")
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_time ON $tableName(${LoggerX.COLUMN_TIME} DESC)")
+        ensureScopeIndexes(db, tableName)
+    }
+
+    private fun ensureScopeIndexes(db: SQLiteDatabase, tableName: String) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_time_id ON $tableName(${LoggerX.COLUMN_TIME} DESC, ${LoggerX.COLUMN_ID} DESC)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_file_path ON $tableName(${LoggerX.COLUMN_FILE_PATH})")
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_level_time ON $tableName(${LoggerX.COLUMN_LEVEL}, ${LoggerX.COLUMN_TIME} DESC)")
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_tag_time ON $tableName(${LoggerX.COLUMN_TAG}, ${LoggerX.COLUMN_TIME} DESC)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_level_time_id ON $tableName(${LoggerX.COLUMN_LEVEL}, ${LoggerX.COLUMN_TIME} DESC, ${LoggerX.COLUMN_ID} DESC)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_tag_time_id ON $tableName(${LoggerX.COLUMN_TAG}, ${LoggerX.COLUMN_TIME} DESC, ${LoggerX.COLUMN_ID} DESC)")
     }
 
     private fun columnsForInsert(): String {
@@ -140,7 +141,7 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
     }
 
     private fun migrateLegacySchema(db: SQLiteDatabase) {
-        db.execSQL("DROP TABLE IF EXISTS log_image")
+        dropLegacyAssociatedTables(db)
         val tables = mutableListOf<String>()
         db.rawQuery(
             "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%_log'",
@@ -152,7 +153,30 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
         }
         tables.forEach { tableName ->
             ensureScopeTableSchema(db, tableName)
+            ensureScopeIndexes(db, tableName)
         }
+    }
+
+    private fun dropLegacyAssociatedTables(db: SQLiteDatabase) {
+        val legacyTables = linkedSetOf("log_image")
+        legacyTables += queryTablesByLike(db, "%\\_log\\_img\\_chunk")
+        legacyTables += queryTablesByLike(db, "%\\_log\\_image")
+        legacyTables.forEach { tableName ->
+            db.execSQL("DROP TABLE IF EXISTS $tableName")
+        }
+    }
+
+    private fun queryTablesByLike(db: SQLiteDatabase, likePattern: String): List<String> {
+        val tables = mutableListOf<String>()
+        db.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE ? ESCAPE '\\'",
+            arrayOf(likePattern)
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                tables += cursor.getString(0)
+            }
+        }
+        return tables
     }
 
     private fun applyOpenPragma(db: SQLiteDatabase) {
@@ -179,6 +203,6 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
     }
     companion object {
         const val DB_NAME = "hearthappy_logs.db"
-        const val DB_VERSION = 6
+        const val DB_VERSION = 7
     }
 }

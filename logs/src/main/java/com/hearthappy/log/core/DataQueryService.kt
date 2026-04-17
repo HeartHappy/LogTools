@@ -71,6 +71,10 @@ object DataQueryService {
     private val sessions = ConcurrentHashMap<String, Session>()
     private val cache = LruTtlCache<String, LogDbManager.QueryPageResult>(64, 60_000L)
 
+    fun invalidateCache() {
+        cache.clear()
+    }
+
     fun queryAsync(scopeTag: String, request: QueryRequest, listener: QueryListener): QueryHandle {
         val queryId = UUID.randomUUID().toString()
         val session = Session(

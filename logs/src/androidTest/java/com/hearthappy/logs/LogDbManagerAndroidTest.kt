@@ -3,6 +3,7 @@ package com.hearthappy.logs
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.database.sqlite.SQLiteDatabase
 import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -93,6 +94,64 @@ class LogDbManagerAndroidTest {
         assertEquals(1000, logs.size)
         assertTrue(writeElapsed < 120_000)
         assertTrue(loadElapsed < 5_000)
+    }
+
+    @Test
+    fun queryLogs_shouldReturnAllRowsWithinSameSecondInStableOrder() {
+        val scope = "SecondCollisionScope"
+        repeat(8) { index ->
+            LogDbManager.insertLog(scope, "INFO", "Tag", "method()", "same-second-$index")
+        }
+        val logs = LogDbManager.queryLogsAdvanced(scopeTag = scope, limit = 20)
+        assertEquals(8, logs.size)
+        assertEquals("same-second-7", logs.first()[LoggerX.COLUMN_MESSAGE])
+        assertEquals("same-second-0", logs.last()[LoggerX.COLUMN_MESSAGE])
+    }
+
+    @Test
+    fun queryLogsPage_shouldNotMissRowsWhenMultipleRowsShareSameTimestamp() {
+        val scope = "PagedSecondCollisionScope"
+        repeat(8) { index ->
+            LogDbManager.insertLog(scope, "INFO", "Tag", "method()", "paged-$index")
+        }
+        val firstPage = LogDbManager.queryLogsPageAdvanced(scopeTag = scope, page = 1, limit = 5)
+        val secondPage = LogDbManager.queryLogsPageAdvanced(scopeTag = scope, page = 2, limit = 5)
+        val merged = (firstPage.rows + secondPage.rows)
+            .map { it[LoggerX.COLUMN_MESSAGE].toString() }
+            .toSet()
+        assertEquals(8, merged.size)
+        assertTrue(merged.contains("paged-7"))
+        assertTrue(merged.contains("paged-0"))
+    }
+
+    @Test
+    fun upgrade_shouldDropLegacyImgChunkTables() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val dbPath = context.getDatabasePath("hearthappy_logs.db")
+        if (dbPath.exists()) {
+            dbPath.delete()
+        }
+        SQLiteDatabase.openOrCreateDatabase(dbPath, null).use { db ->
+            db.execSQL("CREATE TABLE IF NOT EXISTS Common_log(id INTEGER PRIMARY KEY AUTOINCREMENT, time TEXT, level TEXT, tag TEXT, method TEXT, message TEXT, file_path TEXT)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS Common_log_img_chunk(id INTEGER PRIMARY KEY AUTOINCREMENT, chunk TEXT)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS Error_log_img_chunk(id INTEGER PRIMARY KEY AUTOINCREMENT, chunk TEXT)")
+            db.version = 6
+        }
+        LoggerX.init(context, com.hearthappy.log.core.OutputConfig(storageDirPath = baseDir.absolutePath))
+        val helper = com.hearthappy.log.db.LogDbHelper(context)
+        helper.writableDatabase.use { db ->
+            val legacyTables = mutableListOf<String>()
+            db.rawQuery(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE ? ESCAPE '\\'",
+                arrayOf("%\\_log\\_img\\_chunk")
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    legacyTables += cursor.getString(0)
+                }
+            }
+            assertTrue(legacyTables.isEmpty())
+            assertEquals(7, db.version)
+        }
     }
 
     @Test

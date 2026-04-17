@@ -7,6 +7,7 @@ import android.util.Base64
 import android.util.Log
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.ContextHolder
+import com.hearthappy.log.core.DataQueryService
 import com.hearthappy.log.core.FileLogStorageManager
 import com.hearthappy.log.core.FileLogWriteException
 import com.hearthappy.log.core.ImagePreviewData
@@ -19,9 +20,6 @@ object LogDbManager {
 
     private val dbHelper = LogDbHelper(ContextHolder.getAppContext())
     private val database = dbHelper.writableDatabase
-    private val readDbLock = Any()
-
-    @Volatile private var readOnlyDatabase: SQLiteDatabase? = null
     private val existedTables = HashSet<String>()
     private val scheduledExecutor = Executors.newSingleThreadScheduledExecutor()
 
@@ -50,6 +48,7 @@ object LogDbManager {
                 put(LoggerX.COLUMN_MESSAGE, message)
                 put(LoggerX.COLUMN_FILE_PATH, "")
             })
+            notifyDataChanged()
         } catch (e: Exception) {
             Log.e(LoggerX.TAG, "insertLog failed: ${e.message}")
         }
@@ -68,6 +67,7 @@ object LogDbManager {
                 put(LoggerX.COLUMN_MESSAGE, message)
                 put(LoggerX.COLUMN_FILE_PATH, managedFile.file.absolutePath)
             })
+            notifyDataChanged()
             queryLogById(tableName, rowId.toInt()) ?: throw FileLogWriteException("写入文件日志失败，请稍后重试")
         } catch (e: Exception) {
             managedFile.file.delete()
@@ -151,7 +151,7 @@ object LogDbManager {
                 s.${LoggerX.COLUMN_FILE_PATH}
             FROM $tableName s
             $where
-            ORDER BY s.${LoggerX.COLUMN_TIME} $order
+            ORDER BY s.${LoggerX.COLUMN_TIME} $order, s.${LoggerX.COLUMN_ID} $order
             $limitSql
         """.trimIndent()
         val countSql = """
@@ -159,20 +159,12 @@ object LogDbManager {
             FROM $tableName s
             $where
         """.trimIndent()
-        val explainSql = "EXPLAIN QUERY PLAN $sql"
         return runCatching {
             val result = mutableListOf<Map<String, Any>>()
             var bytes = 0
-            val db = getReadOnlyDatabase()
+            val db = database
             val totalCount = db.rawQuery(countSql, args.toTypedArray()).use { cursor ->
                 if (cursor.moveToFirst()) cursor.getInt(0) else 0
-            }
-            val queryPlan = db.rawQuery(explainSql, args.toTypedArray()).use { cursor ->
-                val plan = mutableListOf<String>()
-                while (cursor.moveToNext()) {
-                    plan += cursor.getString(3).orEmpty()
-                }
-                plan
             }
             db.rawQuery(sql, args.toTypedArray()).use { cursor ->
                 while (cursor.moveToNext()) {
@@ -186,7 +178,7 @@ object LogDbManager {
                 }
             }
             val loadedCount = offset + result.size
-            QueryPageResult(rows = result, totalCount = totalCount, page = page, limit = limit, nextPage = if (loadedCount < totalCount && result.isNotEmpty()) page + 1 else null, approxBytes = bytes, hasMore = loadedCount < totalCount, queryPlan = queryPlan)
+            QueryPageResult(rows = result, totalCount = totalCount, page = page, limit = limit, nextPage = if (loadedCount < totalCount && result.isNotEmpty()) page + 1 else null, approxBytes = bytes, hasMore = loadedCount < totalCount, queryPlan = emptyList())
         }.getOrElse {
             Log.e(LoggerX.TAG, "queryLogsPageAdvanced failed: ${it.message}")
             QueryPageResult(emptyList(), 0, page, limit, null, 0, false, emptyList())
@@ -238,11 +230,11 @@ object LogDbManager {
                 s.${LoggerX.COLUMN_FILE_PATH}
             FROM $tableName s
             $where
-            ORDER BY s.${LoggerX.COLUMN_TIME} $order
+            ORDER BY s.${LoggerX.COLUMN_TIME} $order, s.${LoggerX.COLUMN_ID} $order
         """.trimIndent()
         return runCatching {
             val result = mutableListOf<Map<String, Any>>()
-            getReadOnlyDatabase().rawQuery(sql, args.toTypedArray()).use { cursor ->
+            database.rawQuery(sql, args.toTypedArray()).use { cursor ->
                 while (cursor.moveToNext()) {
                     result += cursorToMap(cursor)
                 }
@@ -273,7 +265,7 @@ object LogDbManager {
         }
         return runCatching {
             val values = mutableListOf<String>()
-            getReadOnlyDatabase().rawQuery(sql, null).use { c ->
+            database.rawQuery(sql, null).use { c ->
                 while (c.moveToNext()) {
                     c.getString(0)?.takeIf { it.isNotBlank() }?.let(values::add)
                 }
@@ -292,12 +284,19 @@ object LogDbManager {
         val whereArgs = if (timeFormat.isNullOrBlank()) null else arrayOf(timeFormat)
         val filePaths = queryFilePaths(tableName, where, whereArgs)
         if (filePaths.isEmpty() && timeFormat.isNullOrBlank()) {
-            return database.delete(tableName, null, null)
+            val deletedRows = database.delete(tableName, null, null)
+            if (deletedRows > 0) {
+                notifyDataChanged()
+            }
+            return deletedRows
         }
         val deletedRows = runInTransaction {
             database.delete(tableName, where, whereArgs)
         }
         deleteStoredFiles(filePaths)
+        if (deletedRows > 0) {
+            notifyDataChanged()
+        }
         return deletedRows
     }
 
@@ -310,6 +309,7 @@ object LogDbManager {
                 }
                 deleteStoredFiles(filePaths)
             }
+            notifyDataChanged()
             true
         }.getOrElse {
             Log.e(LoggerX.TAG, "clearAllLogs failed: ${it.message}")
@@ -360,6 +360,7 @@ object LogDbManager {
             database.delete(tableName, where, args)
         }
         deleteStoredFiles(filePaths)
+        notifyDataChanged()
     }
 
     private fun performCleanupBySize(maxSizeMb: Double, cleanSizeMb: Double) {
@@ -386,6 +387,7 @@ object LogDbManager {
                         database.delete(table, "${LoggerX.COLUMN_ID} IN ($placeholders)", ids.map { it.toString() }.toTypedArray())
                     }
                     deleteStoredFiles(paths)
+                    notifyDataChanged()
                 }
             }
             currentSizeMb = dbFile.length().toDouble() / (1024.0 * 1024.0)
@@ -401,7 +403,7 @@ object LogDbManager {
 
     private fun queryFilePathById(tableName: String, logId: Int): String? {
         return runCatching {
-            getReadOnlyDatabase().query(tableName, arrayOf(LoggerX.COLUMN_FILE_PATH), "${LoggerX.COLUMN_ID}=?", arrayOf(logId.toString()), null, null, null, "1").use { cursor ->
+            database.query(tableName, arrayOf(LoggerX.COLUMN_FILE_PATH), "${LoggerX.COLUMN_ID}=?", arrayOf(logId.toString()), null, null, null, "1").use { cursor ->
                 if (cursor.moveToFirst()) cursor.getString(0) else null
             }
         }.getOrNull()
@@ -465,37 +467,16 @@ object LogDbManager {
         return exists
     }
 
-    private fun getReadOnlyDatabase(): SQLiteDatabase {
-        readOnlyDatabase?.let { db ->
-            if (db.isOpen) return db
-        }
-        synchronized(readDbLock) {
-            readOnlyDatabase?.let { db ->
-                if (db.isOpen) return db
-            }
-            val dbPath = ContextHolder.getAppContext().getDatabasePath(LogDbHelper.DB_NAME).absolutePath
-            val db = SQLiteDatabase.openDatabase(dbPath, null, SQLiteDatabase.OPEN_READONLY)
-            applyPragma(db, "PRAGMA query_only=ON")
-            applyPragma(db, "PRAGMA cache_size=-64000")
-            readOnlyDatabase = db
-            return db
-        }
-    }
-
-    private fun applyPragma(db: SQLiteDatabase, sql: String) {
-        runCatching {
-            db.rawQuery(sql, null).use { }
-        }.recoverCatching {
-            db.execSQL(sql)
-        }
-    }
-
     private fun getAllLogTables(): List<String> {
         val tables = mutableListOf<String>()
         database.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%_log'", null).use { c ->
             while (c.moveToNext()) tables += c.getString(0)
         }
         return tables
+    }
+
+    private fun notifyDataChanged() {
+        DataQueryService.invalidateCache()
     }
 
     private inline fun runInTransaction(block: () -> Int): Int {

@@ -1,4 +1,4 @@
-package com.hearthappy.loggerx.preview
+package com.hearthappy.log.preview
 
 import com.hearthappy.log.LoggerX
 

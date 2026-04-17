@@ -1,11 +1,11 @@
-package com.hearthappy.loggerx.preview
+package com.hearthappy.log.preview
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
-import com.hearthappy.loggerx.R
-import com.hearthappy.loggerx.databinding.ItemFilterChipBinding
+import com.hearthappy.logs.R
+import com.hearthappy.logs.databinding.ItemFilterChipBinding
 
 class FilterChipAdapter(
     private val category: FilterCategory,

@@ -1,6 +1,8 @@
 package com.hearthappy.loggerx.preview
 
 import com.hearthappy.log.LoggerX
+import com.hearthappy.log.preview.FilterQueryHelper
+import com.hearthappy.log.preview.FilterState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -20,12 +22,7 @@ class FilterQueryHelperTest {
 
     @Test
     fun `matches should support combined conditions`() {
-        val state = FilterState(
-            time = setOf("2026-04-14"),
-            level = setOf("DEBUG", "INFO"),
-            tag = setOf("MainActivity"),
-            method = setOf("outLogAndFile")
-        )
+        val state = FilterState(time = setOf("2026-04-14"), level = setOf("DEBUG", "INFO"), tag = setOf("MainActivity"), method = setOf("outLogAndFile"))
         val hit = mapOf<String, Any>(
             LoggerX.COLUMN_TIME to "2026-04-14 09:26:59",
             LoggerX.COLUMN_LEVEL to "DEBUG",
@@ -41,15 +38,8 @@ class FilterQueryHelperTest {
 
     @Test
     fun `build params should keep single value and fallback for multi select`() {
-        val single = FilterState(
-            time = setOf("2026-04-14"),
-            level = setOf("DEBUG"),
-            tag = setOf("MainActivity"),
-            method = setOf("method")
-        )
-        val multi = FilterState(
-            level = setOf("DEBUG", "INFO")
-        )
+        val single = FilterState(time = setOf("2026-04-14"), level = setOf("DEBUG"), tag = setOf("MainActivity"), method = setOf("method"))
+        val multi = FilterState(level = setOf("DEBUG", "INFO"))
         val singleParams = FilterQueryHelper.buildQueryParams(single, page = 1, limit = 100)
         val multiParams = FilterQueryHelper.buildQueryParams(multi, page = Int.MAX_VALUE, limit = 0)
         assertEquals("2026-04-14", singleParams.time)

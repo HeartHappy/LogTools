@@ -1,4 +1,4 @@
-package com.hearthappy.loggerx.preview
+package com.hearthappy.log.preview
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider

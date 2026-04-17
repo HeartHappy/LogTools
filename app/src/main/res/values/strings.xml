@@ -1,26 +1,4 @@
 <resources>
     <string name="app_name">LoggerX</string>
-    <string name="filter_title">筛选</string>
-    <string name="filter_reset">重置</string>
-    <string name="filter_confirm">确认</string>
-    <string name="filter_selected">已选中</string>
-    <string name="filter_all">全部</string>
-    <string name="simplify">精简</string>
-    <string name="preview_image">预览图片</string>
-    <string name="image_preview_title">图片预览</string>
-    <string name="image_zoom_in">放大</string>
-    <string name="image_zoom_out">缩小</string>
-    <string name="image_rotate">旋转</string>
-    <string name="image_download">下载</string>
-    <string name="image_close">关闭</string>
-    <string name="image_zoom_in_desc">放大图片</string>
-    <string name="image_zoom_out_desc">缩小图片</string>
-    <string name="image_rotate_desc">旋转图片</string>
-    <string name="image_download_desc">下载图片</string>
-    <string name="image_close_desc">关闭预览</string>
-    <string name="query_progress_title">日志查询进行中</string>
-    <string name="query_cancel">取消</string>
-    <string name="query_background_continue">后台继续</string>
-    <string name="query_loading_stage">正在准备查询</string>
-    <string name="query_has_more">还有更多数据可继续分页加载</string>
+
 </resources>

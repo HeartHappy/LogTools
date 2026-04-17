@@ -1,10 +1,10 @@
-package com.hearthappy.loggerx.preview
+package com.hearthappy.log.preview
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.hearthappy.loggerx.databinding.ItemFilterDimensionRowBinding
+import com.hearthappy.logs.databinding.ItemFilterDimensionRowBinding
 
 class FilterDimensionRowAdapter(
     private val onChipClick: (FilterCategory, String?) -> Unit

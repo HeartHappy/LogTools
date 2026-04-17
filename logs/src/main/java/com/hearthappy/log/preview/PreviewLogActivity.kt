@@ -1,11 +1,13 @@
-package com.hearthappy.loggerx.preview
+package com.hearthappy.log.preview
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.Fragment
+import androidx.viewpager2.adapter.FragmentStateAdapter
+import androidx.viewpager2.widget.ViewPager2
 import com.hearthappy.basic.ext.addListener
-import com.hearthappy.basic.ext.addStateAdapter
 import com.hearthappy.log.LoggerX
-import com.hearthappy.loggerx.databinding.ActivityPreviewBinding
+import com.hearthappy.logs.databinding.ActivityPreviewBinding
 
 class PreviewLogActivity : AppCompatActivity() {
 
@@ -20,9 +22,14 @@ class PreviewLogActivity : AppCompatActivity() {
             for (string in outputters) {
                 tabLayout.addTab(tabLayout.newTab().setText(string))
             }
+            vp.adapter= object : FragmentStateAdapter(supportFragmentManager, lifecycle){
+                override fun getItemCount(): Int {
+                    return outputters.size
+                }
 
-            vp.addStateAdapter(supportFragmentManager, lifecycle, outputters.size) {
-                PreviewLogFragment.newInstance(it)
+                override fun createFragment(position: Int): Fragment {
+                    return PreviewLogFragment.newInstance(position)
+                }
             }
             vp.addListener { tabLayout.getTabAt(it)?.select() }
             tabLayout.addListener(onSelect = {

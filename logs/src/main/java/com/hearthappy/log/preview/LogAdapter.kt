@@ -1,16 +1,15 @@
-package com.hearthappy.loggerx.preview
+package com.hearthappy.log.preview
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
-import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.hearthappy.basic.ext.show
 import com.hearthappy.log.LoggerX
-import com.hearthappy.log.image.LogImageLoaderFactory
 import com.hearthappy.log.core.LogLevel
-import com.hearthappy.loggerx.databinding.ItemLogListBinding
+import com.hearthappy.log.image.LogImageLoaderFactory
+import com.hearthappy.logs.databinding.ItemLogListBinding
 
 class LogAdapter(private val onImageClick: (Int) -> Unit = {}): ListAdapter<Map<String, Any>, LogAdapter.LogViewHolder>(LogDiffCallback) {
 
@@ -63,14 +62,10 @@ class LogAdapter(private val onImageClick: (Int) -> Unit = {}): ListAdapter<Map<
             val filePath = LogImageUiHelper.resolveFilePath(data)
             ivImageThumb.show(isImage, showBlock = {
                 val requestPath = filePath.ifBlank { null }
-                setImageDrawable(null)
+                this.setImageDrawable(null)
                 tag = requestPath
                 if (requestPath != null) {
-                    LogImageLoaderFactory.get(context).loadThumbnail(
-                        path = requestPath,
-                        width = width.takeIf { it > 0 } ?: DEFAULT_REQUEST_EDGE,
-                        height = height.takeIf { it > 0 } ?: DEFAULT_REQUEST_EDGE
-                    ) { bitmap ->
+                    LogImageLoaderFactory.get(context).loadThumbnail(path = requestPath, width = width.takeIf { it > 0 } ?: DEFAULT_REQUEST_EDGE, height = height.takeIf { it > 0 } ?: DEFAULT_REQUEST_EDGE) { bitmap ->
                         if (tag == requestPath) {
                             setImageBitmap(bitmap)
                         }
@@ -88,6 +83,16 @@ class LogAdapter(private val onImageClick: (Int) -> Unit = {}): ListAdapter<Map<
             tag = null
             setImageDrawable(null)
             setOnClickListener(null)
+        }
+
+        fun <T: View> T.show(show: Boolean, showBlock: T.() -> Unit = {}, hide: T.() -> Unit = {}) {
+            if (show) {
+                showBlock()
+                if (visibility != View.VISIBLE) visibility = View.VISIBLE
+            } else {
+                hide()
+                if (visibility != View.GONE) visibility = View.GONE
+            }
         }
 
         private fun ItemLogListBinding.level2Color(level: String) {
@@ -113,6 +118,7 @@ class LogAdapter(private val onImageClick: (Int) -> Unit = {}): ListAdapter<Map<
             return oldItem == newItem
         }
     }
+
 
     companion object {
         private const val DEFAULT_REQUEST_EDGE = 512

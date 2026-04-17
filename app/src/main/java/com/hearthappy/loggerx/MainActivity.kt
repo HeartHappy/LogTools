@@ -9,7 +9,7 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.hearthappy.log.LoggerX
-import com.hearthappy.loggerx.preview.PreviewLogActivity
+import com.hearthappy.log.preview.PreviewLogActivity
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream

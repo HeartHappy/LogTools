@@ -1,4 +1,4 @@
-package com.hearthappy.loggerx.preview
+package com.hearthappy.log.preview
 
 import android.content.ContentValues
 import android.net.Uri
@@ -14,7 +14,7 @@ import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.ImagePreviewData
 import com.hearthappy.log.core.LogScopeProxy
 import com.hearthappy.log.image.LogImageLoaderFactory
-import com.hearthappy.loggerx.databinding.ActivityPreviewLargeImageBinding
+import com.hearthappy.logs.databinding.ActivityPreviewLargeImageBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -142,7 +142,7 @@ class PreviewLargeImageActivity: AppCompatActivity() {
             mimeType.contains("gif") -> "gif"
             else -> "jpg"
         }
-        val fileName = "loggerx_${System.currentTimeMillis()}.$suffix"
+        val fileName = "loggers_${System.currentTimeMillis()}.$suffix"
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
             put(MediaStore.Images.Media.MIME_TYPE, mimeType)

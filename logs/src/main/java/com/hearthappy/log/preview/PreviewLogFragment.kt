@@ -1,4 +1,4 @@
-package com.hearthappy.loggerx.preview
+package com.hearthappy.log.preview
 
 import android.content.Intent
 import android.os.Bundle
@@ -21,8 +21,8 @@ import com.hearthappy.basic.ext.showAtBottom
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.LogScopeProxy
 import com.hearthappy.log.image.LogImageLoaderFactory
-import com.hearthappy.loggerx.databinding.FragmentPreviewBinding
-import com.hearthappy.loggerx.databinding.PopMultiFilterBinding
+import com.hearthappy.logs.databinding.FragmentPreviewBinding
+import com.hearthappy.logs.databinding.PopMultiFilterBinding
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -126,20 +126,17 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
             height = ViewGroup.LayoutParams.WRAP_CONTENT,
             viewEventListener = { vb ->
                 setupFilterPopup(vb)
+                setOnDismissListener {
+                    popupJobs.forEach { it.cancel() }
+                    popupJobs.clear()
+                    if (!isConfirmed) {
+                        viewModel.cancelDraft()
+                    }
+                    viewModel.clearDistinctCache()
+                }
             },
             transition = Slide()
-        ).apply {
-            isOutsideTouchable = true
-            isFocusable = true
-            setOnDismissListener {
-                popupJobs.forEach { it.cancel() }
-                popupJobs.clear()
-                if (!isConfirmed) {
-                    viewModel.cancelDraft()
-                }
-                viewModel.clearDistinctCache()
-            }
-        }
+        )
 
         popupWindow?.showAtBottom(viewBinding.root)
     }

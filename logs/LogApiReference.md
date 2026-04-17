@@ -2,24 +2,21 @@
 
 ## 1. 变更概览
 
-本版图片日志链路已升级为:
+本版文件日志链路已升级为:
 
-- 图片二进制统一写入 SQLite `BLOB`，不再落文件、不再分片表。
-- 每个 `scope` 仍对应一张日志表 `<scope>_log`，图片明细统一存储在 `log_image`。
-- `scope` 表仅保留 `thumbnail` 和 `image_id` 两个图片关联字段。
-- 导出 CSV/TXT 时，`compressed_image` 与 `thumbnail` 均输出为:
-  `data:<media_type>;base64,<base64_body>`。
+- 不再执行图片压缩、Base64 预编码或二进制落库。
+- 每个 `scope` 仍对应一张日志表 `<scope>_log`，文件日志仅保存 `file_path`。
+- 原 `log_image` 表、图片 blob 字段和关联索引已全部移除。
+- 导出 CSV/TXT 时按 `file_path` 读取文件并输出 `file_base64`:
+  `data:image/{ext};base64,<base64_body>`。
 
-## 2. 图片写入策略
+## 2. 文件写入策略
 
-- 默认压缩器: `DefaultImageCompressor` (WebP，质量 85，优先 lossless)。
-- 可插拔压缩器: `IImageCompressor`，通过 `LoggerX.setImageCompressor(...)` 注入。
-- 压缩流程:
-  原始图 -> 自定义压缩器 -> WebP 阶梯降级（质量/分辨率/灰度）-> `compressed_image(BLOB)`。
-- 目标约束:
-  单图输入 <= 8 MB；目标压缩 <= 800 KB；超限自动继续降级。
-- 事务语义:
-  压缩与入库在同一事务中执行，失败抛 `ImageLogWriteException` 并携带 `compressionLog`。
+- 对外入口改为 `LogScopeProxy.file(path)` 与 `LogScopeProxy.file(file)`。
+- 写入前校验空值、路径格式、文件存在性、可读性和非空文件。
+- 源文件会复制到统一的可配置目录 `OutputConfig.storageDirPath`。
+- 目录不存在时自动创建，并进行读写探测。
+- 写入失败时抛 `FileLogWriteException`，错误信息面向业务场景。
 
 ## 3. 表结构
 
@@ -33,58 +30,39 @@
 | `tag` | `TEXT` | 类标签 |
 | `method` | `TEXT` | 方法 |
 | `message` | `TEXT` | 文本消息 |
-| `thumbnail` | `TEXT` | 缩略图 base64 |
-| `image_id` | `INTEGER DEFAULT -1` | 关联 `log_image.id`，`-1` 表示非图片 |
+| `file_path` | `VARCHAR(512)` | 托管后文件绝对路径，空字符串表示非文件日志 |
 
 索引:
 
 - `idx_<scope>_time(time)`
-- `idx_<scope>_image_id(image_id)`
-
-### 3.2 图片表 `log_image`
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | `INTEGER PK AUTOINCREMENT` | 图片主键 |
-| `scope_id` | `INTEGER NOT NULL` | 关联 `<scope>_log.id` |
-| `media_type` | `TEXT NOT NULL` | MIME，如 `image/webp` |
-| `compressed_image` | `BLOB NOT NULL` | 压缩后二进制 |
-| `width` | `INTEGER` | 宽 |
-| `height` | `INTEGER` | 高 |
-| `original_size` | `INTEGER` | 原始字节数 |
-| `compressed_size` | `INTEGER` | 压缩后字节数 |
-| `compression_ratio` | `REAL` | 压缩比 |
-| `checksum_sha256` | `TEXT` | 哈希 |
-
-索引:
-
-- `idx_image_scope_time(scope_id, timestamp)`
+- `idx_<scope>_file_path(file_path)`
 
 ## 4. 导出规则
 
-- 列顺序: `scope` 字段在前，图片字段在后。
-- `compressed_image`: `BLOB -> Base64(NO_WRAP) -> data URI`。
-- `thumbnail`: `Base64 -> data URI`。
+- 列顺序: `scope` 字段在前，文件字段在后。
+- 文件列: `file_path`。
+- 预览列: `file_base64`。
+- 导出过程采用分页、批量、异步处理，并内置失败重试。
 - 编码: UTF-8。
 - 换行符: CRLF(`\r\n`)。
 - CSV: RFC 4180 双引号转义。
 
 ## 5. 关键 API
 
-- `LoggerX.setImageCompressor(compressor, options)`:
-  注入自定义压缩器和默认参数。
-- `LogScopeProxy.image(...)`:
-  统一图片写入入口，内部执行事务写库。
-- `LogDbManager.queryLogsAdvanced(..., includeImagePayload = true)`:
-  查询时可返回 `compressed_image` 的 base64 内容，供导出使用。
+- `LoggerX.init(context, OutputConfig(storageDirPath = ...))`:
+  配置统一文件存储目录。
+- `LogScopeProxy.file(pathOrFile, message)`:
+  文件日志写入入口，返回包含绝对路径的日志条目。
+- `LogDbManager.queryLogsAdvanced(...)`:
+  查询时返回 `file_path` 与虚拟列 `is_image`。
 - `LogDbManager.loadImagePreviewData(scope, logId)`:
-  返回 `mimeType + thumbnailBase64 + compressedBase64`。
+  返回 `filePath + mimeType`，供大图预览使用。
 
 ## 6. 排查建议
 
-- `ImageLogWriteException`:
-  优先查看 `compressionLog`，确认在哪一层降级失败。
+- `FileLogWriteException`:
+  优先查看业务错误信息，确认是路径非法、权限不足、磁盘已满还是目录不可用。
 - 导出后无法直接预览:
-  检查导出列是否为 `data:<media_type>;base64,...` 完整前缀。
+- 检查导出列是否为 `data:image/{ext};base64,...` 完整前缀。
 - 查不到图片:
-  检查 `image_id > 0` 与 `log_image.scope_id` 关联是否一致。
+  检查 `file_path` 是否非空且目标文件仍存在。

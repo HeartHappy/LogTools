@@ -9,5 +9,6 @@ package com.hearthappy.log.core
  */
 data class OutputConfig(
     var isLog: Boolean = true,
-    var isWriteDatabase: Boolean = true
+    var isWriteDatabase: Boolean = true,
+    var storageDirPath: String? = null
 )

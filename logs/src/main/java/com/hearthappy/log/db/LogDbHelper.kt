@@ -24,12 +24,11 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
 
     override fun onCreate(db: SQLiteDatabase) {
         applyOpenPragma(db)
-        createImageTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         applyOpenPragma(db)
-        createImageTable(db)
+        migrateLegacySchema(db)
     }
 
     override fun onOpen(db: SQLiteDatabase) {
@@ -41,7 +40,6 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
      * 根据表名创建日志表
      */
     fun createLogTable(db: SQLiteDatabase, tableName: String) {
-        createImageTable(db)
         val sql = """
             CREATE TABLE IF NOT EXISTS $tableName (
                 ${LoggerX.COLUMN_ID } INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,14 +48,13 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
                 ${LoggerX.COLUMN_TAG} TEXT,
                 ${LoggerX.COLUMN_METHOD} TEXT,
                 ${LoggerX.COLUMN_MESSAGE} TEXT,
-                ${LoggerX.COLUMN_THUMBNAIL} TEXT,
-                ${LoggerX.COLUMN_IMAGE_ID} INTEGER DEFAULT -1
+                ${LoggerX.COLUMN_FILE_PATH} VARCHAR(512) DEFAULT ''
             )
         """.trimIndent()
         db.execSQL(sql)
         ensureScopeTableSchema(db, tableName)
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_time ON $tableName(${LoggerX.COLUMN_TIME} DESC)")
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_image_id ON $tableName(${LoggerX.COLUMN_IMAGE_ID})")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_file_path ON $tableName(${LoggerX.COLUMN_FILE_PATH})")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_level_time ON $tableName(${LoggerX.COLUMN_LEVEL}, ${LoggerX.COLUMN_TIME} DESC)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_tag_time ON $tableName(${LoggerX.COLUMN_TAG}, ${LoggerX.COLUMN_TIME} DESC)")
     }
@@ -76,13 +73,20 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
             LoggerX.COLUMN_TAG,
             LoggerX.COLUMN_METHOD,
             LoggerX.COLUMN_MESSAGE,
-            LoggerX.COLUMN_THUMBNAIL,
-            LoggerX.COLUMN_IMAGE_ID
+            LoggerX.COLUMN_FILE_PATH
         )
         val hasLegacyImageColumns = columns.contains("image_payload") ||
             columns.contains("image_chunked") ||
             columns.contains("mime_type") ||
-            columns.contains("is_image")
+            columns.contains("is_image") ||
+            columns.contains("thumbnail") ||
+            columns.contains("image_id") ||
+            columns.contains("media_type") ||
+            columns.contains("compressed_image") ||
+            columns.contains("original_size") ||
+            columns.contains("compressed_size") ||
+            columns.contains("compression_ratio") ||
+            columns.contains("checksum_sha256")
         if (!columns.containsAll(requiredColumns) || hasLegacyImageColumns) {
             rebuildScopeTable(db, tableName, columns)
         }
@@ -100,8 +104,7 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
                 ${LoggerX.COLUMN_TAG} TEXT,
                 ${LoggerX.COLUMN_METHOD} TEXT,
                 ${LoggerX.COLUMN_MESSAGE} TEXT,
-                ${LoggerX.COLUMN_THUMBNAIL} TEXT,
-                ${LoggerX.COLUMN_IMAGE_ID} INTEGER DEFAULT -1
+                ${LoggerX.COLUMN_FILE_PATH} VARCHAR(512) DEFAULT ''
             )
             """.trimIndent()
         )
@@ -112,15 +115,14 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
             if (existingColumns.contains(LoggerX.COLUMN_TAG)) LoggerX.COLUMN_TAG else "'' AS ${LoggerX.COLUMN_TAG}",
             if (existingColumns.contains(LoggerX.COLUMN_METHOD)) LoggerX.COLUMN_METHOD else "'' AS ${LoggerX.COLUMN_METHOD}",
             if (existingColumns.contains(LoggerX.COLUMN_MESSAGE)) LoggerX.COLUMN_MESSAGE else "'' AS ${LoggerX.COLUMN_MESSAGE}",
-            if (existingColumns.contains(LoggerX.COLUMN_THUMBNAIL)) LoggerX.COLUMN_THUMBNAIL else "'' AS ${LoggerX.COLUMN_THUMBNAIL}",
-            "-1 AS ${LoggerX.COLUMN_IMAGE_ID}"
+            if (existingColumns.contains(LoggerX.COLUMN_FILE_PATH)) LoggerX.COLUMN_FILE_PATH else "'' AS ${LoggerX.COLUMN_FILE_PATH}"
         )
         val sql = "INSERT INTO $newTable (${columnsForInsert()}) SELECT ${selectParts.joinToString(",")} FROM $tableName"
         db.execSQL(sql)
         db.execSQL("DROP TABLE IF EXISTS $tableName")
         db.execSQL("ALTER TABLE $newTable RENAME TO $tableName")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_time ON $tableName(${LoggerX.COLUMN_TIME} DESC)")
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_image_id ON $tableName(${LoggerX.COLUMN_IMAGE_ID})")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_file_path ON $tableName(${LoggerX.COLUMN_FILE_PATH})")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_level_time ON $tableName(${LoggerX.COLUMN_LEVEL}, ${LoggerX.COLUMN_TIME} DESC)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_${tableName}_tag_time ON $tableName(${LoggerX.COLUMN_TAG}, ${LoggerX.COLUMN_TIME} DESC)")
     }
@@ -133,110 +135,24 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
             LoggerX.COLUMN_TAG,
             LoggerX.COLUMN_METHOD,
             LoggerX.COLUMN_MESSAGE,
-            LoggerX.COLUMN_THUMBNAIL,
-            LoggerX.COLUMN_IMAGE_ID
+            LoggerX.COLUMN_FILE_PATH
         ).joinToString(",")
     }
 
-    private fun createImageTable(db: SQLiteDatabase) {
-        val requiredColumns = setOf(
-            "id",
-            "scope_id",
-            LoggerX.COLUMN_MEDIA_TYPE,
-            LoggerX.COLUMN_COMPRESSED_IMAGE,
-            "width",
-            "height",
-            LoggerX.COLUMN_ORIGINAL_SIZE,
-            LoggerX.COLUMN_COMPRESSED_SIZE,
-            LoggerX.COLUMN_COMPRESSION_RATIO,
-            LoggerX.COLUMN_CHECKSUM_SHA256
-        )
-        val hasImageTable = db.rawQuery(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='log_image'",
+    private fun migrateLegacySchema(db: SQLiteDatabase) {
+        db.execSQL("DROP TABLE IF EXISTS log_image")
+        val tables = mutableListOf<String>()
+        db.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%_log'",
             null
-        ).use { c -> c.moveToFirst() && c.getInt(0) > 0 }
-
-        if (!hasImageTable) {
-            createImageTableFresh(db)
-            return
-        }
-
-        val columns = mutableSetOf<String>()
-        db.rawQuery("PRAGMA table_info(log_image)", null).use { cursor ->
+        ).use { cursor ->
             while (cursor.moveToNext()) {
-                columns.add(cursor.getString(cursor.getColumnIndexOrThrow("name")))
+                tables += cursor.getString(0)
             }
         }
-        val hasLegacyTimestamp = columns.contains("timestamp")
-        if (!columns.containsAll(requiredColumns) || hasLegacyTimestamp) {
-            rebuildImageTable(db, columns)
-        } else {
-            db.execSQL("CREATE INDEX IF NOT EXISTS idx_image_scope_id ON log_image(scope_id)")
+        tables.forEach { tableName ->
+            ensureScopeTableSchema(db, tableName)
         }
-    }
-
-    private fun createImageTableFresh(db: SQLiteDatabase) {
-        db.execSQL(
-            """
-            CREATE TABLE IF NOT EXISTS log_image (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scope_id INTEGER NOT NULL,
-                media_type TEXT NOT NULL,
-                compressed_image BLOB NOT NULL,
-                width INTEGER,
-                height INTEGER,
-                original_size INTEGER,
-                compressed_size INTEGER,
-                compression_ratio REAL,
-                checksum_sha256 TEXT
-            )
-            """.trimIndent()
-        )
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_image_scope_id ON log_image(scope_id)")
-    }
-
-    private fun rebuildImageTable(db: SQLiteDatabase, existingColumns: Set<String>) {
-        val newTable = "log_image_new"
-        db.execSQL("DROP TABLE IF EXISTS $newTable")
-        db.execSQL(
-            """
-            CREATE TABLE $newTable (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scope_id INTEGER NOT NULL,
-                media_type TEXT NOT NULL,
-                compressed_image BLOB NOT NULL,
-                width INTEGER,
-                height INTEGER,
-                original_size INTEGER,
-                compressed_size INTEGER,
-                compression_ratio REAL,
-                checksum_sha256 TEXT
-            )
-            """.trimIndent()
-        )
-        val selectParts = listOf(
-            if (existingColumns.contains("id")) "id" else "NULL AS id",
-            if (existingColumns.contains("scope_id")) "scope_id" else "-1 AS scope_id",
-            if (existingColumns.contains(LoggerX.COLUMN_MEDIA_TYPE)) LoggerX.COLUMN_MEDIA_TYPE else "'image/webp' AS ${LoggerX.COLUMN_MEDIA_TYPE}",
-            if (existingColumns.contains(LoggerX.COLUMN_COMPRESSED_IMAGE)) LoggerX.COLUMN_COMPRESSED_IMAGE else "X'' AS ${LoggerX.COLUMN_COMPRESSED_IMAGE}",
-            if (existingColumns.contains("width")) "width" else "0 AS width",
-            if (existingColumns.contains("height")) "height" else "0 AS height",
-            if (existingColumns.contains(LoggerX.COLUMN_ORIGINAL_SIZE)) LoggerX.COLUMN_ORIGINAL_SIZE else "0 AS ${LoggerX.COLUMN_ORIGINAL_SIZE}",
-            if (existingColumns.contains(LoggerX.COLUMN_COMPRESSED_SIZE)) LoggerX.COLUMN_COMPRESSED_SIZE else "0 AS ${LoggerX.COLUMN_COMPRESSED_SIZE}",
-            if (existingColumns.contains(LoggerX.COLUMN_COMPRESSION_RATIO)) LoggerX.COLUMN_COMPRESSION_RATIO else "0.0 AS ${LoggerX.COLUMN_COMPRESSION_RATIO}",
-            if (existingColumns.contains(LoggerX.COLUMN_CHECKSUM_SHA256)) LoggerX.COLUMN_CHECKSUM_SHA256 else "'' AS ${LoggerX.COLUMN_CHECKSUM_SHA256}"
-        )
-        db.execSQL(
-            """
-            INSERT INTO $newTable (
-                id,scope_id,media_type,compressed_image,width,height,original_size,compressed_size,compression_ratio,checksum_sha256
-            )
-            SELECT ${selectParts.joinToString(",")} FROM log_image
-            """.trimIndent()
-        )
-        db.execSQL("DROP TABLE IF EXISTS log_image")
-        db.execSQL("ALTER TABLE $newTable RENAME TO log_image")
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_image_scope_id ON log_image(scope_id)")
     }
 
     private fun applyOpenPragma(db: SQLiteDatabase) {
@@ -263,6 +179,6 @@ internal class LogDbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME
     }
     companion object {
         const val DB_NAME = "hearthappy_logs.db"
-        const val DB_VERSION = 5
+        const val DB_VERSION = 6
     }
 }

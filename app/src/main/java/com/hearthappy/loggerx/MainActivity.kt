@@ -1,7 +1,6 @@
 package com.hearthappy.loggerx
 
 import android.content.Intent
-import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -12,22 +11,15 @@ import androidx.appcompat.app.AppCompatActivity
 import com.hearthappy.log.LoggerX
 import com.hearthappy.loggerx.preview.PreviewActivity
 import org.json.JSONObject
-import java.util.Random
+import java.io.File
+import java.io.FileOutputStream
 
 class MainActivity: AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
-    private val random = Random()
     private var logCount = 0
 
     private val logRunnable = object: Runnable {
         override fun run() {
-            val level = when (random.nextInt(5)) {
-                0 -> "D"
-                1 -> "I"
-                2 -> "W"
-                3 -> "E"
-                else -> "V"
-            }
             val message = "测试日志消息 $logCount - ${System.currentTimeMillis()}"
             LoggerX.COMMON.i("testMethod:$message")
             logCount++
@@ -43,10 +35,10 @@ class MainActivity: AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         // 启动循环插入日志
-//        handler.post(logRunnable)
+        //        handler.post(logRunnable)
 
-//        val dbFileSize = LoggerX.getDbFileSize()
-//        Log.i(TAG, "onCreate: $dbFileSize")
+        //        val dbFileSize = LoggerX.getDbFileSize()
+        //        Log.i(TAG, "onCreate: $dbFileSize")
     }
 
     override fun onDestroy() {
@@ -81,12 +73,9 @@ class MainActivity: AppCompatActivity() {
         LoggerX.COMMON.json(jSONObject.toString())
         MyApp.CUSTOM_SCOPE.d("自定义的作用域日志  测试！！！")
 
-        val resource = BitmapFactory.decodeResource(resources, R.mipmap.test_face)
-        LoggerX.COMMON.image(resource, message = "裁剪图：")
-        val resource1 = BitmapFactory.decodeResource(resources, R.mipmap.test1)
-        LoggerX.COMMON.image(resource1, message = "壁纸图")
-        val resource2 = BitmapFactory.decodeResource(resources, R.mipmap.test2)
-        LoggerX.COMMON.image(resource2, message = "壁纸图")
+        LoggerX.COMMON.file(copyResourceToTempFile(R.mipmap.test_face, "test_face.png"), message = "裁剪图：")
+        LoggerX.COMMON.file(copyResourceToTempFile(R.mipmap.test1, "test1.jpg"), message = "壁纸图1：")
+        LoggerX.COMMON.file(copyResourceToTempFile(R.mipmap.test2, "test2.jpg"), message = "壁纸图2：")
     }
 
     fun deleteLogFile(view: View) {
@@ -117,6 +106,18 @@ class MainActivity: AppCompatActivity() {
         LoggerX.exportAndShareAll {
             Log.i(TAG, "shareFile: $it")
         }
+    }
+
+    private fun copyResourceToTempFile(resId: Int, fileName: String): File {
+        val target = File(externalCacheDir, fileName)
+        if (target.exists()) return target
+        resources.openRawResource(resId).use { input ->
+            FileOutputStream(target).use { output ->
+                input.copyTo(output)
+                output.flush()
+            }
+        }
+        return target
     }
 
 }

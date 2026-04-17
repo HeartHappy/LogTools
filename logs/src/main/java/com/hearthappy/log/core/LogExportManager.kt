@@ -1,18 +1,16 @@
 package com.hearthappy.log.core
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.util.Base64
+import android.util.Base64OutputStream
+import android.util.Log
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.db.LogDbManager
-import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.OutputStreamWriter
 import java.nio.charset.StandardCharsets
-import java.util.Locale
 
 object LogExportManager {
     enum class ExportFormat(val extension: String, val mimeType: String) {
@@ -20,10 +18,19 @@ object LogExportManager {
         TXT("txt", "text/plain")
     }
 
-    /**
-     * 将指定 Scope 的日志导出为临时文件（CSV/TXT）
-     * @param onProgress 进度回调 (0..100)
-     */
+    private const val EXPORT_PAGE_SIZE = 100
+    private const val MAX_EXPORT_RETRY = 3
+    private val headerColumns = listOf(
+        LoggerX.COLUMN_ID,
+        LoggerX.COLUMN_TIME,
+        LoggerX.COLUMN_LEVEL,
+        LoggerX.COLUMN_TAG,
+        LoggerX.COLUMN_METHOD,
+        LoggerX.COLUMN_MESSAGE,
+        LoggerX.COLUMN_FILE_PATH,
+        "file_base64"
+    )
+
     fun export(
         context: Context,
         scopeTag: String,
@@ -31,33 +38,39 @@ object LogExportManager {
         format: ExportFormat = ExportFormat.CSV,
         onProgress: ((Int) -> Unit)? = null
     ): File? {
-        val fileName = "${scopeTag}_logs.${format.extension}"
-        val exportFile = File(context.cacheDir, fileName) // 存放在缓存目录，方便分享
-
-        try {
+        val exportFile = createExportFile(context, scopeTag, format)
+        return runCatching {
             OutputStreamWriter(FileOutputStream(exportFile), StandardCharsets.UTF_8).use { writer ->
-                writer.append(headerLine(format))
-                val total = logs.size
-
-                // 2. 写入数据
-                logs.forEachIndexed { index, log ->
-                    writer.append(formatLine(log, format))
-
-                    // 每一百条回调一次进度
-                    if (total == 0 || index % 100 == 0 || index == total - 1) {
-                        onProgress?.invoke(((index + 1).toFloat() / total * 100).toInt())
-                    }
+                appendHeader(writer, format)
+                val total = logs.size.coerceAtLeast(1)
+                logs.forEachIndexed { index, row ->
+                    appendRow(writer, row, format)
+                    onProgress?.invoke(((index + 1) * 100 / total).coerceIn(0, 100))
                 }
-                if (total == 0) {
+                if (logs.isEmpty()) {
                     onProgress?.invoke(100)
                 }
-                writer.flush()
             }
-            return exportFile
-        } catch (e: IOException) {
-            e.printStackTrace()
-            return null
-        }
+            exportFile
+        }.onFailure {
+            exportFile.delete()
+            Log.e(LoggerX.TAG, "export failed: ${it.message}")
+        }.getOrNull()
+    }
+
+    internal fun exportScopeAndShare(
+        scopeTag: String,
+        exportAll: Boolean,
+        limit: Int,
+        format: ExportFormat = ExportFormat.CSV,
+        onProgress: ((Int) -> Unit)? = null
+    ) {
+        Thread {
+            val file = exportScopePaged(ContextHolder.getAppContext(), scopeTag, exportAll, limit, format, onProgress)
+            if (file != null) {
+                LogShareManager.shareLogFile(ContextHolder.getAppContext(), file, format.mimeType)
+            }
+        }.start()
     }
 
     internal fun exportAll(
@@ -67,32 +80,27 @@ object LogExportManager {
         onProgress: ((Int) -> Unit)? = null
     ) {
         Thread {
-            val scopes = LogOutputterManager.getScopes()
+            val scopes = LogOutputterManager.getScopes().toList()
             if (scopes.isEmpty()) return@Thread
-
             val exportedFiles = mutableListOf<File>()
-            val totalScopes = scopes.size
-
+            val totalScopes = scopes.size.coerceAtLeast(1)
             scopes.forEachIndexed { index, scope ->
-                val logs = if (exportAll) {
-                    LogDbManager.queryLogsAdvanced(scope, limit = null, includeImagePayload = true)
-                } else {
-                    LogDbManager.queryLogsAdvanced(scope, limit = limit, includeImagePayload = true)
+                val startPercent = index * 100 / totalScopes
+                val endPercent = (index + 1) * 100 / totalScopes
+                val file = exportScopePaged(
+                    context = ContextHolder.getAppContext(),
+                    scopeTag = scope,
+                    exportAll = exportAll,
+                    limit = limit,
+                    format = format
+                ) { progress ->
+                    val overall = startPercent + ((endPercent - startPercent) * progress / 100)
+                    onProgress?.invoke(overall.coerceIn(0, 100))
                 }
-
-                // 计算该 scope 的进度在总体进度中的占比
-                val baseProgress = (index.toFloat() / totalScopes * 100).toInt()
-                val nextBaseProgress = ((index + 1).toFloat() / totalScopes * 100).toInt()
-
-                val file = export(ContextHolder.getAppContext(), scope, logs, format) { scopeProgress ->
-                    // 换算成总体进度
-                    val overallProgress = baseProgress + (scopeProgress * (nextBaseProgress - baseProgress) / 100)
-                    onProgress?.invoke(overallProgress)
+                if (file != null) {
+                    exportedFiles += file
                 }
-
-                file?.let { exportedFiles.add(it) }
             }
-
             if (exportedFiles.isNotEmpty()) {
                 onProgress?.invoke(100)
                 LogShareManager.shareLogFiles(ContextHolder.getAppContext(), exportedFiles)
@@ -100,58 +108,135 @@ object LogExportManager {
         }.start()
     }
 
-    private fun headerLine(format: ExportFormat): String {
-        val columns = listOf(
-            LoggerX.COLUMN_ID,
-            LoggerX.COLUMN_TIME,
-            LoggerX.COLUMN_LEVEL,
-            LoggerX.COLUMN_TAG,
-            LoggerX.COLUMN_METHOD,
-            LoggerX.COLUMN_MESSAGE,
-            LoggerX.COLUMN_THUMBNAIL,
-            LoggerX.COLUMN_IMAGE_ID,
-            LoggerX.COLUMN_MEDIA_TYPE,
-            LoggerX.COLUMN_COMPRESSED_IMAGE,
-            LoggerX.COLUMN_ORIGINAL_SIZE,
-            LoggerX.COLUMN_COMPRESSED_SIZE,
-            LoggerX.COLUMN_COMPRESSION_RATIO
-        )
-        return when (format) {
-            ExportFormat.CSV -> columns.joinToString(",") + "\r\n"
-            ExportFormat.TXT -> columns.joinToString("\t") + "\r\n"
+    private fun exportScopePaged(
+        context: Context,
+        scopeTag: String,
+        exportAll: Boolean,
+        limit: Int,
+        format: ExportFormat,
+        onProgress: ((Int) -> Unit)? = null
+    ): File? {
+        val exportFile = createExportFile(context, scopeTag, format)
+        return runCatching {
+            OutputStreamWriter(FileOutputStream(exportFile), StandardCharsets.UTF_8).use { writer ->
+                appendHeader(writer, format)
+                var page = 1
+                var processed = 0
+                var targetTotal = if (exportAll) Int.MAX_VALUE else limit.coerceAtLeast(0)
+                while (true) {
+                    val currentPageSize = if (exportAll) {
+                        EXPORT_PAGE_SIZE
+                    } else {
+                        minOf(EXPORT_PAGE_SIZE, (targetTotal - processed).coerceAtLeast(0))
+                    }
+                    if (currentPageSize == 0) break
+                    val pageResult = retry("query-page-$page") {
+                        LogDbManager.queryLogsPageAdvanced(
+                            scopeTag = scopeTag,
+                            page = page,
+                            limit = currentPageSize)
+                    }
+                    if (page == 1) {
+                        targetTotal = if (exportAll) pageResult.totalCount else minOf(limit, pageResult.totalCount)
+                    }
+                    if (pageResult.rows.isEmpty()) {
+                        break
+                    }
+                    pageResult.rows.forEach { row ->
+                        appendRow(writer, row, format)
+                        processed++
+                        val progress = if (targetTotal <= 0) 100 else (processed * 100 / targetTotal).coerceIn(0, 100)
+                        onProgress?.invoke(progress)
+                    }
+                    if (!pageResult.hasMore || processed >= targetTotal) {
+                        break
+                    }
+                    page++
+                }
+                if (processed == 0) {
+                    onProgress?.invoke(100)
+                }
+                writer.flush()
+            }
+            exportFile
+        }.onFailure {
+            exportFile.delete()
+            Log.e(LoggerX.TAG, "exportScopePaged failed(scope=$scopeTag): ${it.message}")
+        }.getOrNull()
+    }
+
+    private fun createExportFile(context: Context, scopeTag: String, format: ExportFormat): File {
+        val safeScope = scopeTag.replace(Regex("[^a-zA-Z0-9_-]"), "_")
+        val fileName = "${safeScope}_${System.currentTimeMillis()}.${format.extension}"
+        val exportDir = runCatching { FileLogStorageManager.resolveExportDir() }.getOrElse { context.cacheDir }
+        return File(exportDir, fileName)
+    }
+
+    private fun appendHeader(writer: OutputStreamWriter, format: ExportFormat) {
+        when (format) {
+            ExportFormat.CSV -> writer.append(headerColumns.joinToString(",") { quoteCsv(it) }).append("\r\n")
+            ExportFormat.TXT -> writer.append(headerColumns.joinToString("\t")).append("\r\n")
         }
     }
 
-    private fun formatLine(log: Map<String, Any>, format: ExportFormat): String {
-        val thumb = toPngDataUri(log[LoggerX.COLUMN_THUMBNAIL]?.toString())
-        val compressed = toPngDataUri(log[LoggerX.COLUMN_COMPRESSED_IMAGE]?.toString())
-        val exportMediaType = if (compressed.isNotBlank() || thumb.isNotBlank()) {
-            "image/png"
-        } else {
-            log[LoggerX.COLUMN_MEDIA_TYPE]?.toString().orEmpty().ifBlank { "image/png" }
-        }
-        val row = listOf(
-            log[LoggerX.COLUMN_ID].toText(),
-            log[LoggerX.COLUMN_TIME].toText(),
-            log[LoggerX.COLUMN_LEVEL].toText(),
-            log[LoggerX.COLUMN_TAG].toText(),
-            log[LoggerX.COLUMN_METHOD].toText(),
-            log[LoggerX.COLUMN_MESSAGE].toText(),
-            thumb,
-            log[LoggerX.COLUMN_IMAGE_ID].toText(),
-            exportMediaType,
-            compressed,
-            formatSizeMb(log[LoggerX.COLUMN_ORIGINAL_SIZE]),
-            formatSizeMb(log[LoggerX.COLUMN_COMPRESSED_SIZE]),
-            formatCompressionRatio(log[LoggerX.COLUMN_COMPRESSION_RATIO])
+    private fun appendRow(writer: OutputStreamWriter, row: Map<String, Any>, format: ExportFormat) {
+        val baseFields = listOf(
+            row[LoggerX.COLUMN_ID].toText(),
+            row[LoggerX.COLUMN_TIME].toText(),
+            row[LoggerX.COLUMN_LEVEL].toText(),
+            row[LoggerX.COLUMN_TAG].toText(),
+            row[LoggerX.COLUMN_METHOD].toText(),
+            row[LoggerX.COLUMN_MESSAGE].toText(),
+            row[LoggerX.COLUMN_FILE_PATH].toText()
         )
-        return when (format) {
+        when (format) {
             ExportFormat.CSV -> {
-                row.joinToString(",") { quoteCsv(it) } + "\r\n"
+                baseFields.forEachIndexed { index, value ->
+                    if (index > 0) writer.append(',')
+                    writer.append(quoteCsv(value))
+                }
+                writer.append(',')
+                appendCsvDataUri(writer, row[LoggerX.COLUMN_FILE_PATH]?.toString())
+                writer.append("\r\n")
             }
             ExportFormat.TXT -> {
-                row.joinToString("\t") { it.replace("\r", " ").replace("\n", "\\n") } + "\r\n"
+                writer.append(baseFields.joinToString("\t") { sanitizeTxt(it) })
+                writer.append('\t')
+                appendTxtDataUri(writer, row[LoggerX.COLUMN_FILE_PATH]?.toString())
+                writer.append("\r\n")
             }
+        }
+    }
+
+    private fun appendCsvDataUri(writer: OutputStreamWriter, filePath: String?) {
+        writer.append('"')
+        appendDataUriBody(writer, filePath)
+        writer.append('"')
+    }
+
+    private fun appendTxtDataUri(writer: OutputStreamWriter, filePath: String?) {
+        appendDataUriBody(writer, filePath)
+    }
+
+    private fun appendDataUriBody(writer: OutputStreamWriter, filePath: String?) {
+        runCatching {
+            val file = retry("read-file") { FileLogStorageManager.validateStoredFile(filePath) }
+            val mimeType = FileLogStorageManager.detectMimeType(file)
+            writer.append("data:")
+            writer.append(mimeType)
+            writer.append(";base64,")
+            FileInputStream(file).use { input ->
+                StreamingBase64Writer(writer).use { base64Out ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read <= 0) break
+                        base64Out.write(buffer, 0, read)
+                    }
+                }
+            }
+        }.onFailure {
+            Log.e(LoggerX.TAG, "appendDataUriBody failed: ${it.message}")
         }
     }
 
@@ -159,36 +244,43 @@ object LogExportManager {
         return "\"${value.replace("\"", "\"\"")}\""
     }
 
-    private fun toPngDataUri(base64Body: String?): String {
-        if (base64Body.isNullOrBlank()) return ""
-        return runCatching {
-            val decoded = Base64.decode(base64Body, Base64.DEFAULT)
-            val bitmap = BitmapFactory.decodeByteArray(decoded, 0, decoded.size) ?: return ""
-            val pngBytes = bitmapToPng(bitmap) ?: return ""
-            "data:image/png;base64,${Base64.encodeToString(pngBytes, Base64.NO_WRAP)}"
-        }.getOrElse { "" }
+    private fun sanitizeTxt(value: String): String {
+        return value.replace("\r", " ").replace("\n", "\\n")
     }
 
     private fun Any?.toText(): String = this?.toString().orEmpty()
 
-    private fun bitmapToPng(bitmap: Bitmap): ByteArray? {
-        return runCatching {
-            val out = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-            out.toByteArray()
-        }.getOrNull()
+    private fun <T> retry(name: String, block: () -> T): T {
+        var lastError: Throwable? = null
+        repeat(MAX_EXPORT_RETRY) { attempt ->
+            try {
+                return block()
+            } catch (throwable: Throwable) {
+                lastError = throwable
+                Log.w(LoggerX.TAG, "retry $name failed at attempt=${attempt + 1}: ${throwable.message}")
+            }
+        }
+        throw IOException("operation failed after retry: $name", lastError)
     }
 
-    private fun formatSizeMb(value: Any?): String {
-        val bytes = value?.toString()?.toLongOrNull() ?: return ""
-        if (bytes <= 0L) return ""
-        val mb = bytes.toDouble() / (1024.0 * 1024.0)
-        return String.format(Locale.US, "%.3fM", mb)
-    }
+    private class StreamingBase64Writer(private val writer: OutputStreamWriter) : java.io.Closeable {
+        private val output = object : java.io.OutputStream() {
+            override fun write(b: Int) {
+                writer.write(b)
+            }
 
-    private fun formatCompressionRatio(value: Any?): String {
-        val ratio = value?.toString()?.toDoubleOrNull() ?: return ""
-        if (ratio <= 0.0) return ""
-        return String.format(Locale.US, "%.2f%%", ratio * 100.0)
+            override fun write(b: ByteArray, off: Int, len: Int) {
+                writer.write(String(b, off, len, StandardCharsets.US_ASCII))
+            }
+        }
+        private val base64Stream = Base64OutputStream(output, android.util.Base64.NO_WRAP)
+
+        fun write(buffer: ByteArray, offset: Int, length: Int) {
+            base64Stream.write(buffer, offset, length)
+        }
+
+        override fun close() {
+            base64Stream.close()
+        }
     }
 }

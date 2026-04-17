@@ -1,29 +1,35 @@
 package com.hearthappy.logs
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.hearthappy.log.LoggerX
+import com.hearthappy.log.core.LogExportManager
 import com.hearthappy.log.db.LogDbManager
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.nio.charset.StandardCharsets
 
 @RunWith(AndroidJUnit4::class)
 class LogDbManagerAndroidTest {
+    private lateinit var baseDir: File
 
     @Before
     fun setUp() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
-        LoggerX.init(context)
+        baseDir = File(context.filesDir, "loggerx-test").apply { mkdirs() }
+        LoggerX.init(context, com.hearthappy.log.core.OutputConfig(storageDirPath = baseDir.absolutePath))
         LoggerX.clear()
     }
 
@@ -48,36 +54,37 @@ class LogDbManagerAndroidTest {
     }
 
     @Test
-    fun imageLog_shouldSupportJpegPngGifWebpInput() {
-        val proxy = LoggerX.createScope("ImageScope")
-        val bytes = fakeBitmapBytes(320, 320, Bitmap.CompressFormat.PNG)
-        assertTrue(proxy.image(bytes, "image/jpeg"))
-        assertTrue(proxy.image(bytes, "image/png"))
-        assertTrue(proxy.image(bytes, "image/gif"))
-        assertTrue(proxy.image(bytes, "image/webp"))
+    fun fileLog_shouldPersistAbsolutePathForImageFile() {
+        val proxy = LoggerX.createScope("FileScope")
+        val imageFile = fakeBitmapFile("image_scope.png", 320, 320, Bitmap.CompressFormat.PNG)
+        val entry = proxy.file(imageFile, message = "img")
+        assertTrue(entry.filePath.isNotBlank())
+        assertTrue(File(entry.filePath).exists())
         val logs = proxy.queryLogs(limit = 20)
         assertTrue(logs.any { it[LoggerX.COLUMN_IS_IMAGE]?.toString() == "1" })
+        assertTrue(logs.any { it[LoggerX.COLUMN_FILE_PATH]?.toString() == entry.filePath })
     }
 
     @Test
-    fun imageLog_shouldLoadPreviewData() {
+    fun fileLog_shouldLoadPreviewData() {
         val scope = "PreviewScope"
         val proxy = LoggerX.createScope(scope)
-        val payload = fakeBitmapBytes(720, 480, Bitmap.CompressFormat.JPEG)
-        assertTrue(proxy.image(payload, "image/jpeg"))
+        val imageFile = fakeBitmapFile("preview_scope.jpg", 720, 480, Bitmap.CompressFormat.JPEG)
+        val entry = proxy.file(imageFile, message = "preview")
         val id = LogDbManager.queryLogsAdvanced(scope, limit = 1).first()[LoggerX.COLUMN_ID].toString().toInt()
         val loaded = proxy.loadImagePreviewData(id)
         assertNotNull(loaded)
-        assertTrue(!loaded!!.compressedBase64.isNullOrBlank())
+        assertEquals(entry.filePath, loaded!!.filePath)
+        assertTrue(File(loaded.filePath).exists())
     }
 
     @Test
-    fun imageLog_shouldHandle1000RowsPerformance() {
+    fun fileLog_shouldHandle1000RowsPerformance() {
         val proxy = LoggerX.createScope("PressureScope")
-        val bytes = fakeBitmapBytes(128, 128, Bitmap.CompressFormat.JPEG)
+        val imageFile = fakeBitmapFile("pressure_scope.jpg", 128, 128, Bitmap.CompressFormat.JPEG)
         val start = System.currentTimeMillis()
         repeat(1000) {
-            proxy.image(bytes, "image/jpeg", message = "img-$it")
+            proxy.file(imageFile, message = "img-$it")
         }
         val writeElapsed = System.currentTimeMillis() - start
         val loadStart = System.currentTimeMillis()
@@ -89,16 +96,32 @@ class LogDbManagerAndroidTest {
     }
 
     @Test
-    fun imageLog_shouldGenerateThumbnail() {
-        val proxy = LoggerX.createScope("ThumbScope")
-        val bytes = fakeBitmapBytes(256, 256, Bitmap.CompressFormat.JPEG)
-        assertTrue(proxy.image(bytes, "image/jpeg"))
-        val log = proxy.queryLogs(limit = 1).first()
-        val thumb = log[LoggerX.COLUMN_THUMBNAIL]?.toString()
-        assertTrue(!thumb.isNullOrBlank())
-        val decoded = Base64.decode(thumb, Base64.DEFAULT)
-        val bitmap = BitmapFactory.decodeByteArray(decoded, 0, decoded.size)
-        assertNotNull(bitmap)
+    fun deleteLogs_shouldRemoveCopiedFiles() {
+        val proxy = LoggerX.createScope("DeleteScope")
+        val imageFile = fakeBitmapFile("delete_scope.jpg", 256, 256, Bitmap.CompressFormat.JPEG)
+        val entry = proxy.file(imageFile, message = "delete")
+        assertTrue(File(entry.filePath).exists())
+        val rows = proxy.deleteLogs()
+        assertTrue(rows > 0)
+        assertFalse(File(entry.filePath).exists())
+    }
+
+    @Test
+    fun export_shouldEmbedFileBase64DataUri() {
+        val proxy = LoggerX.createScope("ExportScope")
+        val imageFile = fakeBitmapFile("export_scope.png", 64, 64, Bitmap.CompressFormat.PNG)
+        val entry = proxy.file(imageFile, message = "export")
+        val logs = proxy.queryLogs(limit = 10)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val exportFile = LogExportManager.export(context, "ExportScope", logs)
+        assertNotNull(exportFile)
+        val text = exportFile!!.readText(StandardCharsets.UTF_8)
+        assertTrue(text.contains("file_base64"))
+        assertTrue(text.contains("data:image/png;base64,"))
+        val copiedBytes = File(entry.filePath).readBytes()
+        val encoded = Base64.encodeToString(copiedBytes, Base64.NO_WRAP)
+        assertTrue(text.contains(encoded))
+        exportFile.delete()
     }
 
     private fun fakeBitmapBytes(width: Int, height: Int, format: Bitmap.CompressFormat): ByteArray {
@@ -109,5 +132,14 @@ class LogDbManagerAndroidTest {
         val out = ByteArrayOutputStream()
         bitmap.compress(format, 90, out)
         return out.toByteArray()
+    }
+
+    private fun fakeBitmapFile(fileName: String, width: Int, height: Int, format: Bitmap.CompressFormat): File {
+        val file = File(baseDir, fileName)
+        FileOutputStream(file).use { output ->
+            output.write(fakeBitmapBytes(width, height, format))
+            output.flush()
+        }
+        return file
     }
 }

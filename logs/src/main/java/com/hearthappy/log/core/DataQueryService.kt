@@ -133,9 +133,7 @@ object DataQueryService {
                 keyword = session.request.keyword,
                 isAsc = session.request.sortAsc,
                 page = session.request.page,
-                limit = session.request.pageSize,
-                includeImagePayload = session.request.includeImagePayload
-            )
+                limit = session.request.pageSize)
             if (session.cancelled.get()) {
                 notifyCancelled(session)
                 return

@@ -1,109 +1,53 @@
 package com.hearthappy.log.core
 
-import android.graphics.Bitmap
 import android.util.Log
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.db.LogDbManager
-import java.io.ByteArrayOutputStream
+import java.io.File
 import java.util.concurrent.atomic.AtomicLong
 
-data class ImagePreviewData(
-    val mimeType: String,
-    val thumbnailBase64: String?,
-    val compressedBase64: String?
-)
+data class ImagePreviewData(val filePath: String, val mimeType: String)
+
+data class FileLogEntry(val id: Int, val time: String, val level: String, val tag: String, val method: String, val message: String, val filePath: String)
 
 /**
  * Scope代理类：封装不同等级的日志调用
  */
 class LogScopeProxy(private val scope: String): LogScope {
-    // VERBOSE
     fun v(message: String) = output(LogLevel.VERBOSE, message)
 
-    // DEBUG
     fun d(message: String) = output(LogLevel.DEBUG, message)
 
-    // INFO
     fun i(message: String) = output(LogLevel.INFO, message)
 
-    // WARN
     fun w(message: String) = output(LogLevel.WARN, message)
 
-    // ERROR（支持Throwable）
     fun e(message: String, throwable: Throwable? = null) = output(LogLevel.ERROR, message, throwable)
 
-    // ASSERT
     fun wtf(message: String) = output(LogLevel.ASSERT, message)
 
-    // JSON
     fun json(json: String?) = output(LogLevel.DEBUG, json ?: "Empty JSON")
 
-    // XML
     fun xml(xml: String?) = output(LogLevel.DEBUG, xml ?: "Empty XML")
 
-    /**
-     * 核心输出方法
-     */
+    fun file(filePath: String, message: String = "file-log"): FileLogEntry {
+        return writeFileLog(FileLogStorageManager.validateSource(filePath), message)
+    }
+
+    fun file(file: File, message: String = "file-log"): FileLogEntry {
+        return writeFileLog(FileLogStorageManager.validateSource(file), message)
+    }
+
     private fun output(level: LogLevel, message: String, throwable: Throwable? = null) {
         LogOutputterManager.getOutputter(scope).output(level, message, throwable)
     }
 
-    fun queryLogs(
-        time: String? = null,
-        tag: String? = null,
-        level: String? = null,
-        method: String? = null,
-        isImage: Boolean? = null,
-        keyword: String? = null,
-        isAsc: Boolean = false,
-        page: Int = 1,
-        limit: Int? = 100,
-        includeImagePayload: Boolean = false
-    ): List<Map<String, Any>> {
-        return LogDbManager.queryLogsAdvanced(
-            scope,
-            time,
-            tag,
-            level,
-            method,
-            isImage,
-            keyword,
-            isAsc,
-            page,
-            limit,
-            includeImagePayload
-        )
+    fun queryLogs(time: String? = null, tag: String? = null, level: String? = null, method: String? = null, isImage: Boolean? = null, keyword: String? = null, isAsc: Boolean = false, page: Int = 1, limit: Int? = 100, includeImagePayload: Boolean = false): List<Map<String, Any>> {
+        return LogDbManager.queryLogsAdvanced(scope, time, tag, level, method, isImage, keyword, isAsc, page, limit)
     }
 
-    fun queryLogsAsync(
-        time: String? = null,
-        tag: String? = null,
-        level: String? = null,
-        method: String? = null,
-        isImage: Boolean? = null,
-        keyword: String? = null,
-        isAsc: Boolean = false,
-        page: Int = 1,
-        limit: Int = 100,
-        includeImagePayload: Boolean = false,
-        listener: DataQueryService.QueryListener
-    ): DataQueryService.QueryHandle {
-        return DataQueryService.queryAsync(
-            scopeTag = scope,
-            request = DataQueryService.QueryRequest(
-                time = time,
-                tag = tag,
-                level = level,
-                method = method,
-                isImage = isImage,
-                keyword = keyword,
-                sortAsc = isAsc,
-                page = page,
-                pageSize = limit,
-                includeImagePayload = includeImagePayload
-            ),
-            listener = listener
-        )
+    fun queryLogsAsync(time: String? = null, tag: String? = null, level: String? = null, method: String? = null, isImage: Boolean? = null, keyword: String? = null, isAsc: Boolean = false, page: Int = 1, limit: Int = 100, includeImagePayload: Boolean = false, listener: DataQueryService.QueryListener): DataQueryService.QueryHandle {
+        return DataQueryService.queryAsync(scopeTag = scope, request = DataQueryService.QueryRequest(time = time, tag = tag, level = level, method = method, isImage = isImage, keyword = keyword, sortAsc = isAsc, page = page, pageSize = limit, includeImagePayload = includeImagePayload), listener = listener)
     }
 
     fun getDistinctValues(columnName: String): List<String> {
@@ -118,59 +62,12 @@ class LogScopeProxy(private val scope: String): LogScope {
         return LogDbManager.clearAllLogs()
     }
 
-    fun image(
-        imageBytes: ByteArray,
-        mimeType: String = "image/jpeg",
-        message: String = "image-log",
-        quality: Int = ImageLogCodec.DEFAULT_WEBP_QUALITY
-    ): Boolean {
-        val startNs = System.nanoTime()
-        val stackTraceInfo = LogContextCollector.getStackTraceInfo()
-        val classTag = stackTraceInfo.className
-        val methodName = LogFormatter.format(stackTraceInfo)
-        val result = try {
-            ImageLogger.logAsync(
-                imageBlob = imageBytes,
-                meta = ImageLogger.ImageLogMeta(
-                    scopeTag = scope,
-                    level = LogLevel.INFO.value,
-                    classTag = classTag,
-                    method = methodName,
-                    message = "$message [$mimeType]",
-                    quality = quality
-                )
-            ).accepted
-        } catch (e: ImageLogWriteException) {
-            Log.e(LoggerX.TAG, "Image write failed: ${e.message}, compressionLog=${e.compressionLog}")
-            false
-        }
-        val totalMs = nsToMs(System.nanoTime() - startNs)
-        recordImageWritePerf(totalMs, 0L, 0L, result)
-        return result
-    }
 
-    fun image(
-        bitmap: Bitmap,
-        mimeType: String = "image/jpeg",
-        message: String = "image-log",
-        quality: Int = ImageLogCodec.DEFAULT_WEBP_QUALITY
-    ): Boolean {
-        val out = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        return image(out.toByteArray(), mimeType, message, quality)
-    }
 
-    fun getImageWritePerfSnapshot(): Map<String, Any> {
-        val count = imageWriteCount.get().coerceAtLeast(1L)
-        val total = imageWriteTotalMs.get()
-        return mapOf<String, Any>(
-            "count" to imageWriteCount.get(),
-            "failedCount" to imageWriteFailedCount.get(),
-            "encodeOver200msCount" to imageEncodeOver200MsCount.get(),
-            "over200msCount" to imageWriteOver200MsCount.get(),
-            "avgTotalMs" to (total.toDouble() / count.toDouble()),
-            "maxTotalMs" to imageWriteMaxMs.get()
-        ) + LogDbManager.getImageAsyncMetrics()
+    fun getFileWritePerfSnapshot(): Map<String, Any> {
+        val count = fileWriteCount.get().coerceAtLeast(1L)
+        val total = fileWriteTotalMs.get()
+        return mapOf("count" to fileWriteCount.get(), "failedCount" to fileWriteFailedCount.get(), "over200msCount" to fileWriteOver200MsCount.get(), "avgTotalMs" to (total.toDouble() / count.toDouble()), "maxTotalMs" to fileWriteMaxMs.get())
     }
 
     fun loadImageBase64(logId: Int): String? {
@@ -182,33 +79,11 @@ class LogScopeProxy(private val scope: String): LogScope {
     }
 
     fun loadImagePreviewData(logId: Int): ImagePreviewData? {
-        val data = LogDbManager.loadImagePreviewData(scope, logId) ?: return null
-        return ImagePreviewData(
-            mimeType = data.mimeType,
-            thumbnailBase64 = data.thumbnailBase64,
-            compressedBase64 = data.compressedBase64
-        )
+        return LogDbManager.loadImagePreviewData(scope, logId)
     }
-    // 从数据库导出临时文件并分享
-    fun doExportAndShare(
-        exportAll: Boolean = false,
-        limit: Int = 1000,
-        format: LogExportManager.ExportFormat = LogExportManager.ExportFormat.CSV,
-        onProgress: ((Int) -> Unit)? = null
-    ) {
-        // 异步查询并导出，避免 UI 卡顿
-        Thread {
-            val logs = if (exportAll) {
-                LogDbManager.queryLogsAdvanced(scope, limit = null, includeImagePayload = true)
-            } else {
-                LogDbManager.queryLogsAdvanced(scope, limit = limit, includeImagePayload = true)
-            }
-            val file = LogExportManager.export(ContextHolder.getAppContext(), scope, logs, format, onProgress)
 
-            file?.let {
-                LogShareManager.shareLogFile(ContextHolder.getAppContext(), it, format.mimeType)
-            }
-        }.start()
+    fun doExportAndShare(exportAll: Boolean = false, limit: Int = 1000, format: LogExportManager.ExportFormat = LogExportManager.ExportFormat.CSV, onProgress: ((Int) -> Unit)? = null) {
+        LogExportManager.exportScopeAndShare(scopeTag = scope, exportAll = exportAll, limit = limit, format = format, onProgress = onProgress)
     }
 
     override fun getTag(): String {
@@ -219,32 +94,46 @@ class LogScopeProxy(private val scope: String): LogScope {
         return this
     }
 
-    private fun recordImageWritePerf(totalMs: Long, encodeMs: Long, dbMs: Long, success: Boolean) {
-        imageWriteCount.incrementAndGet()
+    private fun writeFileLog(sourceFile: File, message: String): FileLogEntry {
+        val startNs = System.nanoTime()
+        val stackTraceInfo = LogContextCollector.getStackTraceInfo()
+        val classTag = stackTraceInfo.className
+        val methodName = LogFormatter.format(stackTraceInfo)
+        return try {
+            val row = LogDbManager.insertFileLog(scopeTag = scope, level = LogLevel.INFO.value, classTag = classTag, method = methodName, message = message, sourceFile = sourceFile)
+            val totalMs = nsToMs(System.nanoTime() - startNs)
+            recordFileWritePerf(totalMs, true)
+            FileLogEntry(id = row[LoggerX.COLUMN_ID]?.toString()?.toIntOrNull() ?: -1, time = row[LoggerX.COLUMN_TIME]?.toString().orEmpty(), level = row[LoggerX.COLUMN_LEVEL]?.toString().orEmpty(), tag = row[LoggerX.COLUMN_TAG]?.toString().orEmpty(), method = row[LoggerX.COLUMN_METHOD]?.toString().orEmpty(), message = row[LoggerX.COLUMN_MESSAGE]?.toString().orEmpty(), filePath = row[LoggerX.COLUMN_FILE_PATH]?.toString().orEmpty())
+        } catch (e: FileLogWriteException) {
+            val totalMs = nsToMs(System.nanoTime() - startNs)
+            recordFileWritePerf(totalMs, false)
+            Log.e(LoggerX.TAG, "File write failed: ${e.userMessage}", e)
+            throw e
+        }
+    }
+
+    private fun recordFileWritePerf(totalMs: Long, success: Boolean) {
+        fileWriteCount.incrementAndGet()
         if (!success) {
-            imageWriteFailedCount.incrementAndGet()
+            fileWriteFailedCount.incrementAndGet()
         }
-        if (encodeMs > 200L) {
-            imageEncodeOver200MsCount.incrementAndGet()
-        }
-        imageWriteTotalMs.addAndGet(totalMs)
-        imageWriteMaxMs.updateAndGet { old -> maxOf(old, totalMs) }
+        fileWriteTotalMs.addAndGet(totalMs)
+        fileWriteMaxMs.updateAndGet { old -> maxOf(old, totalMs) }
         if (totalMs > 200L) {
-            imageWriteOver200MsCount.incrementAndGet()
-            Log.w(LoggerX.TAG, "Image log write slow: total=${totalMs}ms, encode=${encodeMs}ms, db=${dbMs}ms")
+            fileWriteOver200MsCount.incrementAndGet()
+            Log.w(LoggerX.TAG, "File log write slow: total=${totalMs}ms")
         } else {
-            Log.i(LoggerX.TAG, "Image log write perf: total=${totalMs}ms, encode=${encodeMs}ms, db=${dbMs}ms")
+            Log.i(LoggerX.TAG, "File log write perf: total=${totalMs}ms")
         }
     }
 
     private fun nsToMs(ns: Long): Long = ns / 1_000_000L
 
     companion object {
-        private val imageWriteCount = AtomicLong(0)
-        private val imageWriteFailedCount = AtomicLong(0)
-        private val imageEncodeOver200MsCount = AtomicLong(0)
-        private val imageWriteOver200MsCount = AtomicLong(0)
-        private val imageWriteTotalMs = AtomicLong(0)
-        private val imageWriteMaxMs = AtomicLong(0)
+        private val fileWriteCount = AtomicLong(0)
+        private val fileWriteFailedCount = AtomicLong(0)
+        private val fileWriteOver200MsCount = AtomicLong(0)
+        private val fileWriteTotalMs = AtomicLong(0)
+        private val fileWriteMaxMs = AtomicLong(0)
     }
 }

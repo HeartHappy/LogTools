@@ -2,13 +2,11 @@ package com.hearthappy.loggerx.preview
 
 import android.content.ContentValues
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
-import android.util.LruCache
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -19,6 +17,7 @@ import androidx.lifecycle.lifecycleScope
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.ImagePreviewData
 import com.hearthappy.log.core.LogScopeProxy
+import com.hearthappy.log.image.LogImageLoaderFactory
 import com.hearthappy.loggerx.databinding.DialogImagePreviewBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,6 +38,7 @@ class ImagePreviewDialogFragment : DialogFragment() {
     private var currentFile: File? = null
     private var currentMime: String = "image/jpeg"
     private var scale = 1f
+    private var currentRequestPath: String? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = DialogImagePreviewBinding.inflate(inflater, container, false)
@@ -76,20 +76,8 @@ class ImagePreviewDialogFragment : DialogFragment() {
     private fun loadImageLazily() {
         val outputterIndex = requireArguments().getInt(ARG_OUTPUTTER_INDEX)
         val logId = requireArguments().getInt(ARG_LOG_ID)
-        val cacheKey = buildCacheKey(outputterIndex, logId)
         binding.pbLoadingImage.isVisible = true
         lifecycleScope.launch {
-            val cached = imageCache.get(cacheKey)
-            if (cached != null) {
-                currentFile = cached
-                currentMime = detectMimeType(cached)
-                val bitmap = withContext(Dispatchers.IO) { decodeBitmapSafely(cached, PREVIEW_MAX_SIDE) }
-                if (bitmap != null) {
-                    binding.ivPreview.setImageBitmap(bitmap)
-                    binding.pbLoadingImage.isVisible = false
-                    return@launch
-                }
-            }
             val previewData = withContext(Dispatchers.IO) {
                 val scopeProxy: LogScopeProxy = LoggerX.getOutputters()[outputterIndex].scope.getProxy()
                 scopeProxy.loadImagePreviewData(logId)
@@ -100,15 +88,11 @@ class ImagePreviewDialogFragment : DialogFragment() {
                 return@launch
             }
             currentMime = previewData.mimeType.ifBlank { "image/jpeg" }
-            val loadedCompressed = loadOriginalFile(previewData, cacheKey)
-            binding.pbLoadingImage.isVisible = false
-            if (!loadedCompressed) {
-                Toast.makeText(requireContext(), "图片加载失败", Toast.LENGTH_SHORT).show()
-            }
+            loadOriginalFile(previewData)
         }
     }
 
-    private suspend fun loadOriginalFile(previewData: ImagePreviewData, cacheKey: Int): Boolean {
+    private suspend fun loadOriginalFile(previewData: ImagePreviewData) {
         val file = withContext(Dispatchers.IO) {
             val resolved = File(previewData.filePath)
             if (resolved.exists() && resolved.isFile && resolved.canRead() && resolved.length() > 0L) {
@@ -116,38 +100,30 @@ class ImagePreviewDialogFragment : DialogFragment() {
             } else {
                 null
             }
-        } ?: return false
-        if (!isSupportedImageFormat(file)) {
-            Toast.makeText(requireContext(), "图片格式不兼容", Toast.LENGTH_SHORT).show()
-            return false
         }
-        val bitmap = withContext(Dispatchers.IO) { decodeBitmapSafely(file, PREVIEW_MAX_SIDE) }
-        if (bitmap == null) {
-            Toast.makeText(requireContext(), "图片解码失败", Toast.LENGTH_SHORT).show()
-            return false
+        if (file == null) {
+            binding.pbLoadingImage.isVisible = false
+            Toast.makeText(requireContext(), "图片加载失败", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!isSupportedImageFormat(file)) {
+            binding.pbLoadingImage.isVisible = false
+            Toast.makeText(requireContext(), "图片格式不兼容", Toast.LENGTH_SHORT).show()
+            return
         }
         currentFile = file
         currentMime = detectMimeType(file)
-        imageCache.put(cacheKey, file)
-        binding.ivPreview.setImageBitmap(bitmap)
-        return true
-    }
-
-    private fun decodeBitmapSafely(file: File, maxSide: Int): Bitmap? {
-        return try {
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(file.absolutePath, bounds)
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-            val sampleSize = calculateInSampleSize(bounds.outWidth, bounds.outHeight, maxSide)
-            val options = BitmapFactory.Options().apply {
-                inSampleSize = sampleSize
-                inPreferredConfig = Bitmap.Config.RGB_565
+        currentRequestPath = file.absolutePath
+        LogImageLoaderFactory.get(requireContext()).loadOriginal(file.absolutePath) { bitmap ->
+            if (!isAdded || _binding == null || currentRequestPath != file.absolutePath) {
+                return@loadOriginal
             }
-            BitmapFactory.decodeFile(file.absolutePath, options)
-        } catch (_: OutOfMemoryError) {
-            null
-        } catch (_: Exception) {
-            null
+            binding.pbLoadingImage.isVisible = false
+            if (bitmap == null) {
+                Toast.makeText(requireContext(), "图片解码失败", Toast.LENGTH_SHORT).show()
+            } else {
+                binding.ivPreview.setImageBitmap(bitmap)
+            }
         }
     }
 
@@ -188,22 +164,6 @@ class ImagePreviewDialogFragment : DialogFragment() {
         }.getOrDefault("application/octet-stream")
     }
 
-    private fun calculateInSampleSize(width: Int, height: Int, maxSide: Int): Int {
-        var inSample = 1
-        var w = width
-        var h = height
-        while (w > maxSide || h > maxSide) {
-            inSample *= 2
-            w /= 2
-            h /= 2
-        }
-        return inSample.coerceAtLeast(1)
-    }
-
-    private fun buildCacheKey(outputterIndex: Int, logId: Int): Int {
-        return (outputterIndex * 1_000_003) xor logId
-    }
-
     private fun saveToGallery(file: File, mimeType: String) {
         val resolver = requireContext().contentResolver
         val suffix = when {
@@ -241,6 +201,7 @@ class ImagePreviewDialogFragment : DialogFragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        currentRequestPath = null
         binding.ivPreview.setImageDrawable(null)
         _binding = null
     }
@@ -248,9 +209,7 @@ class ImagePreviewDialogFragment : DialogFragment() {
     companion object {
         private const val ARG_OUTPUTTER_INDEX = "arg_outputter_index"
         private const val ARG_LOG_ID = "arg_log_id"
-        private const val PREVIEW_MAX_SIDE = 2_048
         private val SUPPORTED_MIME_TYPES = setOf("image/jpeg", "image/png", "image/webp", "image/gif")
-        private val imageCache = object : LruCache<Int, File>(30) {}
 
         fun newInstance(outputterIndex: Int, logId: Int): ImagePreviewDialogFragment {
             return ImagePreviewDialogFragment().apply {

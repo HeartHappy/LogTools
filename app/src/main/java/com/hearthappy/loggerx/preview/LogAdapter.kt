@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.hearthappy.basic.ext.show
 import com.hearthappy.log.LoggerX
+import com.hearthappy.log.image.LogImageLoaderFactory
 import com.hearthappy.log.core.LogLevel
 import com.hearthappy.loggerx.databinding.ItemLogListBinding
 
@@ -26,6 +27,11 @@ class LogAdapter(private val onImageClick: (Int) -> Unit = {}): ListAdapter<Map<
 
     override fun onBindViewHolder(holder: LogViewHolder, position: Int) {
         holder.bind(getItem(position), onImageClick, isSimplified)
+    }
+
+    override fun onViewRecycled(holder: LogViewHolder) {
+        holder.unbind()
+        super.onViewRecycled(holder)
     }
 
     override fun getItemId(position: Int): Long {
@@ -54,12 +60,34 @@ class LogAdapter(private val onImageClick: (Int) -> Unit = {}): ListAdapter<Map<
             tvMessageTitle.show(!isSimplified)
 
             val isImage = LogImageUiHelper.isImageLog(data)
+            val filePath = LogImageUiHelper.resolveFilePath(data)
             ivImageThumb.show(isImage, showBlock = {
-                setImageBitmap(LogImageUiHelper.decodeThumbnail(data))
+                val requestPath = filePath.ifBlank { null }
+                setImageDrawable(null)
+                tag = requestPath
+                if (requestPath != null) {
+                    LogImageLoaderFactory.get(context).loadThumbnail(
+                        path = requestPath,
+                        width = width.takeIf { it > 0 } ?: DEFAULT_REQUEST_EDGE,
+                        height = height.takeIf { it > 0 } ?: DEFAULT_REQUEST_EDGE
+                    ) { bitmap ->
+                        if (tag == requestPath) {
+                            setImageBitmap(bitmap)
+                        }
+                    }
+                }
                 setOnClickListener { data[LoggerX.COLUMN_ID]?.toString()?.toIntOrNull()?.let(onImageClick) }
             }) {
+                tag = null
                 setImageDrawable(null)
+                setOnClickListener(null)
             }
+        }
+
+        fun unbind() = with(binding.ivImageThumb) {
+            tag = null
+            setImageDrawable(null)
+            setOnClickListener(null)
         }
 
         private fun ItemLogListBinding.level2Color(level: String) {
@@ -84,5 +112,9 @@ class LogAdapter(private val onImageClick: (Int) -> Unit = {}): ListAdapter<Map<
         override fun areContentsTheSame(oldItem: Map<String, Any>, newItem: Map<String, Any>): Boolean {
             return oldItem == newItem
         }
+    }
+
+    companion object {
+        private const val DEFAULT_REQUEST_EDGE = 512
     }
 }

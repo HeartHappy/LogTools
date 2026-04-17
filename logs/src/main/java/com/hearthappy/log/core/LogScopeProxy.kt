@@ -62,22 +62,6 @@ class LogScopeProxy(private val scope: String): LogScope {
         return LogDbManager.clearAllLogs()
     }
 
-
-
-    fun getFileWritePerfSnapshot(): Map<String, Any> {
-        val count = fileWriteCount.get().coerceAtLeast(1L)
-        val total = fileWriteTotalMs.get()
-        return mapOf("count" to fileWriteCount.get(), "failedCount" to fileWriteFailedCount.get(), "over200msCount" to fileWriteOver200MsCount.get(), "avgTotalMs" to (total.toDouble() / count.toDouble()), "maxTotalMs" to fileWriteMaxMs.get())
-    }
-
-    fun loadImageBase64(logId: Int): String? {
-        return LogDbManager.loadImageBase64(scope, logId)
-    }
-
-    fun loadImageMimeType(logId: Int): String? {
-        return LogDbManager.loadImageMimeType(scope, logId)
-    }
-
     fun loadImagePreviewData(logId: Int): ImagePreviewData? {
         return LogDbManager.loadImagePreviewData(scope, logId)
     }

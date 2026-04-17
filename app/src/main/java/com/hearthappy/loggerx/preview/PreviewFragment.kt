@@ -14,11 +14,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.hearthappy.basic.AbsBaseFragment
 import com.hearthappy.basic.ext.popupWindow
 import com.hearthappy.basic.ext.showAtBottom
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.LogScopeProxy
+import com.hearthappy.log.image.LogImageLoaderFactory
 import com.hearthappy.loggerx.databinding.FragmentPreviewBinding
 import com.hearthappy.loggerx.databinding.PopMultiFilterBinding
 import kotlinx.coroutines.Job
@@ -71,6 +73,15 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
             rvLogList.layoutManager = LinearLayoutManager(requireContext())
             rvLogList.adapter = logAdapter
             rvLogList.setHasFixedSize(true)
+            rvLogList.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                    if (newState == RecyclerView.SCROLL_STATE_DRAGGING || newState == RecyclerView.SCROLL_STATE_SETTLING) {
+                        LogImageLoaderFactory.pauseDecode()
+                    } else {
+                        LogImageLoaderFactory.resumeDecode()
+                    }
+                }
+            })
             switchBackgroundContinue.isChecked = true
             viewModel.loadInitialLogs()
         }
@@ -173,6 +184,11 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         val pass = now - lastClickTs >= 250
         if (pass) lastClickTs = now
         return pass
+    }
+
+    override fun onDestroyView() {
+        LogImageLoaderFactory.resumeDecode()
+        super.onDestroyView()
     }
 
     companion object {

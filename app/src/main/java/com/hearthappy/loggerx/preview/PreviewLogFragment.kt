@@ -1,9 +1,9 @@
 package com.hearthappy.loggerx.preview
 
+import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
 import android.transition.Slide
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.PopupWindow
@@ -26,7 +26,7 @@ import com.hearthappy.loggerx.databinding.PopMultiFilterBinding
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
+class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
 
     private val outputterIndex: Int by lazy { arguments?.getInt("index") ?: 0 }
     private val scopeProxy: LogScopeProxy by lazy { LoggerX.getOutputters()[outputterIndex].scope.getProxy() }
@@ -67,8 +67,12 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
     override fun FragmentPreviewBinding.initView(savedInstanceState: Bundle?) {
         viewBinding.apply {
             logAdapter = LogAdapter { logId ->
-                ImagePreviewDialogFragment.newInstance(outputterIndex, logId)
-                    .show(childFragmentManager, "image_preview")
+                startActivity(Intent(context,PreviewLargeImageActivity::class.java).apply {
+                    putExtra(PreviewLargeImageActivity.ARG_OUTPUTTER_INDEX, outputterIndex)
+                    putExtra(PreviewLargeImageActivity.ARG_LOG_ID, logId)
+                })
+//                ImagePreviewDialogFragment.newInstance(outputterIndex, logId)
+//                    .show(childFragmentManager, "image_preview")
             }
             rvLogList.layoutManager = LinearLayoutManager(requireContext())
             rvLogList.adapter = logAdapter
@@ -192,8 +196,8 @@ class PreviewFragment : AbsBaseFragment<FragmentPreviewBinding>() {
     }
 
     companion object {
-        fun newInstance(i: Int): PreviewFragment {
-            return PreviewFragment().apply {
+        fun newInstance(i: Int): PreviewLogFragment {
+            return PreviewLogFragment().apply {
                 arguments = Bundle().apply {
                     putInt("index", i)
                 }

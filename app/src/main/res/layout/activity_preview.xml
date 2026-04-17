@@ -5,11 +5,12 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".preview.PreviewActivity">
+    tools:context=".preview.PreviewLogActivity">
 
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tabLayout"
         android:layout_width="match_parent"
+        app:tabMode="scrollable"
         android:layout_height="wrap_content"
         app:layout_constraintTop_toTopOf="parent" />
 

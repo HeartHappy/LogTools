@@ -9,7 +9,7 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.hearthappy.log.LoggerX
-import com.hearthappy.loggerx.preview.PreviewActivity
+import com.hearthappy.loggerx.preview.PreviewLogActivity
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -98,8 +98,8 @@ class MainActivity: AppCompatActivity() {
         val distinctValues = LoggerX.IMPORTANT.getDistinctValues(LoggerX.COLUMN_METHOD)
         Log.i(TAG, "queryDBLogs: ${distinctValues.toList()}")
         val queryLogs = LoggerX.IMPORTANT.queryLogs(isAsc = false)
-        Log.i("PreviewActivity", "onCreate: ${queryLogs.toList().joinToString { "$it\n" }}")
-        startActivity(Intent(this, PreviewActivity::class.java))
+        Log.i("PreviewLogActivity", "onCreate: ${queryLogs.toList().joinToString { "$it\n" }}")
+        startActivity(Intent(this, PreviewLogActivity::class.java))
     }
 
     fun shareFile(view: View) {

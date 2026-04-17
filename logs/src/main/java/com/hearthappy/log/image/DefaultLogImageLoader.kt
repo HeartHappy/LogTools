@@ -26,22 +26,17 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
 import kotlin.concurrent.withLock
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
 
-class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoaderDiagnostics, DecodeControllable {
+class DefaultLogImageLoader(context : Context) : ILogImageLoader, ILogImageLoaderDiagnostics, DecodeControllable {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val decodeExecutor = ThreadPoolExecutor(
-        CORE_POOL_SIZE,
-        CORE_POOL_SIZE,
-        30L,
-        TimeUnit.SECONDS,
-        LinkedBlockingQueue(),
-        Executors.defaultThreadFactory()
-    ).apply {
+    private val decodeExecutor = ThreadPoolExecutor(CORE_POOL_SIZE, CORE_POOL_SIZE, 30L, TimeUnit.SECONDS, LinkedBlockingQueue(), Executors.defaultThreadFactory()).apply {
         allowCoreThreadTimeOut(true)
     }
     private val memoryCache = object : LruCache<String, Bitmap>(resolveMemoryCacheSize()) {
-        override fun sizeOf(key: String, value: Bitmap): Int {
+        override fun sizeOf(key : String, value : Bitmap) : Int {
             return value.byteCount.coerceAtLeast(1)
         }
     }
@@ -57,13 +52,11 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
     private val decodeCostMs = AtomicLong(0L)
     private val peakDecodedBytes = AtomicLong(0L)
 
-    @Volatile
-    private var paused = false
+    @Volatile private var paused = false
 
-    @Volatile
-    private var diskCache: DiskLruCache? = null
+    @Volatile private var diskCache : DiskLruCache? = null
 
-    override fun loadThumbnail(path: String, width: Int, height: Int, callback: (Bitmap?) -> Unit) {
+    override fun loadThumbnail(path : String, width : Int, height : Int, callback : (Bitmap?) -> Unit) {
         val normalizedPath = path.trim()
         if (normalizedPath.isBlank()) {
             postResult(callback, null)
@@ -82,7 +75,7 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         }
     }
 
-    override fun loadOriginal(path: String, callback: (Bitmap?) -> Unit) {
+    override fun loadOriginal(path : String, callback : (Bitmap?) -> Unit) {
         val normalizedPath = path.trim()
         if (normalizedPath.isBlank()) {
             postResult(callback, null)
@@ -118,17 +111,9 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         dir.mkdirs()
     }
 
-    override fun snapshot(): LogImageLoadStatsSnapshot {
+    override fun snapshot() : LogImageLoadStatsSnapshot {
         val requests = decodeRequests.get().coerceAtLeast(1L)
-        return LogImageLoadStatsSnapshot(
-            memoryHits = memoryHits.get(),
-            diskHits = diskHits.get(),
-            decodeRequests = decodeRequests.get(),
-            decodeSuccess = decodeSuccess.get(),
-            decodeFailure = decodeFailure.get(),
-            averageDecodeMs = decodeCostMs.get().toDouble() / requests.toDouble(),
-            peakDecodedBytes = peakDecodedBytes.get()
-        )
+        return LogImageLoadStatsSnapshot(memoryHits = memoryHits.get(), diskHits = diskHits.get(), decodeRequests = decodeRequests.get(), decodeSuccess = decodeSuccess.get(), decodeFailure = decodeFailure.get(), averageDecodeMs = decodeCostMs.get().toDouble() / requests.toDouble(), peakDecodedBytes = peakDecodedBytes.get())
     }
 
     override fun pauseDecode() {
@@ -142,7 +127,7 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         }
     }
 
-    private fun enqueue(key: String, callback: (Bitmap?) -> Unit, decodeAction: () -> Bitmap?) {
+    private fun enqueue(key : String, callback : (Bitmap?) -> Unit, decodeAction : () -> Bitmap?) {
         val shouldStart = synchronized(inFlightCallbacks) {
             val callbacks = inFlightCallbacks[key]
             if (callbacks != null) {
@@ -168,13 +153,13 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         }
     }
 
-    private fun decodeThumbnail(path: String, key: String, width: Int, height: Int): Bitmap? {
+    private fun decodeThumbnail(path : String, key : String, width : Int, height : Int) : Bitmap? {
         val source = File(path)
         if (!source.exists() || !source.isFile || !source.canRead() || source.length() <= 0L) {
             decodeFailure.incrementAndGet()
             return null
         }
-        decodeFromDiskCache(key, Bitmap.Config.RGB_565)?.let { bitmap ->
+        decodeFromDiskCache(key)?.let { bitmap ->
             diskHits.incrementAndGet()
             memoryCache.put(key, bitmap)
             return bitmap
@@ -201,13 +186,13 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         return finalizeDecode(started, result, cacheKey = key, cacheToMemory = true)
     }
 
-    private fun decodeOriginal(path: String, key: String): Bitmap? {
+    private fun decodeOriginal(path : String, key : String) : Bitmap? {
         val source = File(path)
         if (!source.exists() || !source.isFile || !source.canRead() || source.length() <= 0L) {
             decodeFailure.incrementAndGet()
             return null
         }
-        decodeFromDiskCache(key, Bitmap.Config.RGB_565)?.let { bitmap ->
+        decodeFromDiskCache(key)?.let { bitmap ->
             diskHits.incrementAndGet()
             cacheOriginalIfEligible(key, bitmap)
             return bitmap
@@ -230,15 +215,14 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
                 persistBitmapToDiskCache(key, it, ORIGINAL_QUALITY, resolveOriginalCompressFormat(source, it))
             }
         }.getOrNull()
-        return finalizeDecode(started, result, cacheKey = key, cacheToMemory = false)
-            ?.also { cacheOriginalIfEligible(key, it) }
+        return finalizeDecode(started, result, cacheKey = key, cacheToMemory = false)?.also { cacheOriginalIfEligible(key, it) }
     }
 
-    private fun decodeOriginalByRegion(source: File, width: Int, height: Int): Bitmap? {
+    private fun decodeOriginalByRegion(source : File, width : Int, height : Int) : Bitmap? {
         val result = runCatching {
-            Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
+            createBitmap(width, height, Bitmap.Config.RGB_565)
         }.getOrNull() ?: return null
-        var decoder: BitmapRegionDecoder? = null
+        var decoder : BitmapRegionDecoder? = null
         try {
             decoder = BitmapRegionDecoder.newInstance(source.absolutePath, false)
             val canvas = Canvas(result)
@@ -254,10 +238,10 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
                 top = bottom
             }
             return result
-        } catch (_: OutOfMemoryError) {
+        } catch (_ : OutOfMemoryError) {
             safeRecycle(result)
             return null
-        } catch (_: IOException) {
+        } catch (_ : IOException) {
             safeRecycle(result)
             return null
         } finally {
@@ -265,7 +249,7 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         }
     }
 
-    private fun decodeRegion(decoder: BitmapRegionDecoder, region: Rect): Bitmap? {
+    private fun decodeRegion(decoder : BitmapRegionDecoder, region : Rect) : Bitmap? {
         val pooled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             bitmapPool.get(region.width(), region.height(), Bitmap.Config.RGB_565)
         } else {
@@ -280,13 +264,13 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         }
         return try {
             decoder.decodeRegion(region, options)
-        } catch (_: IllegalArgumentException) {
+        } catch (_ : IllegalArgumentException) {
             if (pooled != null) {
                 bitmapPool.put(pooled)
                 options.inBitmap = null
             }
             decoder.decodeRegion(region, options)
-        } catch (_: OutOfMemoryError) {
+        } catch (_ : OutOfMemoryError) {
             if (pooled != null) {
                 bitmapPool.put(pooled)
             }
@@ -294,7 +278,7 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         }
     }
 
-    private fun finalizeDecode(startedNano: Long, bitmap: Bitmap?, cacheKey: String, cacheToMemory: Boolean): Bitmap? {
+    private fun finalizeDecode(startedNano : Long, bitmap : Bitmap?, cacheKey : String, cacheToMemory : Boolean) : Bitmap? {
         decodeRequests.incrementAndGet()
         val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNano)
         decodeCostMs.addAndGet(elapsedMs)
@@ -303,20 +287,23 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
             return null
         }
         decodeSuccess.incrementAndGet()
-        peakDecodedBytes.accumulateAndGet(bitmap.byteCount.toLong(), ::max)
+        var current : Long
+        do {
+            current = peakDecodedBytes.get()
+        } while (!peakDecodedBytes.compareAndSet(current, max(current, bitmap.byteCount.toLong())))
         if (cacheToMemory) {
             memoryCache.put(cacheKey, bitmap)
         }
         return bitmap
     }
 
-    private fun cacheOriginalIfEligible(key: String, bitmap: Bitmap) {
+    private fun cacheOriginalIfEligible(key : String, bitmap : Bitmap) {
         if (bitmap.byteCount <= MAX_MEMORY_CACHEABLE_ORIGINAL_BYTES) {
             memoryCache.put(key, bitmap)
         }
     }
 
-    private fun decodeFromDiskCache(key: String, preferredConfig: Bitmap.Config): Bitmap? {
+    private fun decodeFromDiskCache(key : String) : Bitmap? {
         val snapshot = synchronized(diskCacheLock) {
             runCatching { getDiskCache().get(key) }.getOrNull()
         } ?: return null
@@ -324,19 +311,14 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
             return cached.getInputStream(0).use { input ->
                 runCatching {
                     BitmapFactory.decodeStream(input, null, BitmapFactory.Options().apply {
-                        inPreferredConfig = preferredConfig
+                        inPreferredConfig = Bitmap.Config.RGB_565
                     })
                 }.getOrNull()
             }
         }
     }
 
-    private fun persistBitmapToDiskCache(
-        key: String,
-        bitmap: Bitmap,
-        quality: Int,
-        format: Bitmap.CompressFormat
-    ) {
+    private fun persistBitmapToDiskCache(key : String, bitmap : Bitmap, quality : Int, format : Bitmap.CompressFormat) {
         val cache = synchronized(diskCacheLock) {
             getDiskCache()
         }
@@ -350,19 +332,19 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
             }
             editor.commit()
             cache.flush()
-        } catch (_: Exception) {
+        } catch (_ : Exception) {
             runCatching { editor.abortUnlessCommitted() }
         }
     }
 
-    private fun getDiskCache(): DiskLruCache {
+    private fun getDiskCache() : DiskLruCache {
         diskCache?.let { return it }
         return DiskLruCache.open(resolveDiskCacheDir(), 1, 1, DISK_CACHE_SIZE_BYTES).also {
             diskCache = it
         }
     }
 
-    private fun resolveDiskCacheDir(): File {
+    private fun resolveDiskCacheDir() : File {
         val directory = File(appContext.cacheDir, DISK_CACHE_DIR_NAME)
         if (!directory.exists()) {
             directory.mkdirs()
@@ -370,13 +352,13 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         return directory
     }
 
-    private fun normalizeThumbEdge(edge: Int): Int {
+    private fun normalizeThumbEdge(edge : Int) : Int {
         return edge.takeIf { it > 0 }?.coerceAtMost(MAX_THUMB_EDGE) ?: MAX_THUMB_EDGE
     }
 
-    private fun constrainThumbnailBitmap(bitmap: Bitmap, width: Int, height: Int): Bitmap {
+    private fun constrainThumbnailBitmap(bitmap : Bitmap, width : Int, height : Int) : Bitmap {
         val target = min(width, height).coerceAtLeast(MIN_THUMB_EDGE)
-        var scaled = scaleBitmapIfNeeded(bitmap, target)
+        val scaled = scaleBitmapIfNeeded(bitmap, target)
         val bytesPerPixel = when (scaled.config) {
             Bitmap.Config.ARGB_8888 -> 4
             else -> 2
@@ -394,7 +376,7 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         return constrained
     }
 
-    private fun scaleBitmapIfNeeded(bitmap: Bitmap, maxEdge: Int): Bitmap {
+    private fun scaleBitmapIfNeeded(bitmap : Bitmap, maxEdge : Int) : Bitmap {
         val largest = max(bitmap.width, bitmap.height)
         if (largest <= maxEdge) {
             return bitmap
@@ -402,14 +384,14 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         val scale = maxEdge.toFloat() / largest.toFloat()
         val targetWidth = (bitmap.width * scale).toInt().coerceAtLeast(1)
         val targetHeight = (bitmap.height * scale).toInt().coerceAtLeast(1)
-        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+        return bitmap.scale(targetWidth, targetHeight)
     }
 
-    private fun shouldUseRegionDecode(width: Int, height: Int): Boolean {
+    private fun shouldUseRegionDecode(width : Int, height : Int) : Boolean {
         return width.toLong() * height.toLong() >= REGION_DECODE_THRESHOLD_PIXELS
     }
 
-    private fun resolveOriginalCompressFormat(source: File, bitmap: Bitmap): Bitmap.CompressFormat {
+    private fun resolveOriginalCompressFormat(source : File, bitmap : Bitmap) : Bitmap.CompressFormat {
         val extension = source.extension.lowercase(Locale.US)
         return if (bitmap.hasAlpha() || extension == "png") {
             Bitmap.CompressFormat.PNG
@@ -429,7 +411,7 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         }
     }
 
-    private fun postResult(callback: (Bitmap?) -> Unit, bitmap: Bitmap?) {
+    private fun postResult(callback : (Bitmap?) -> Unit, bitmap : Bitmap?) {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             callback(bitmap)
         } else {
@@ -437,7 +419,7 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         }
     }
 
-    private fun releaseTransientBitmap(bitmap: Bitmap) {
+    private fun releaseTransientBitmap(bitmap : Bitmap) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             bitmapPool.put(bitmap)
         } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
@@ -445,13 +427,13 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         }
     }
 
-    private fun safeRecycle(bitmap: Bitmap) {
+    private fun safeRecycle(bitmap : Bitmap) {
         if (!bitmap.isRecycled) {
             runCatching { bitmap.recycle() }
         }
     }
 
-    private fun resolveMemoryCacheSize(): Int {
+    private fun resolveMemoryCacheSize() : Int {
         val maxMemory = Runtime.getRuntime().maxMemory().coerceAtLeast(8L * 1024L * 1024L)
         val target = (maxMemory / 8L).coerceIn(4L * 1024L * 1024L, 64L * 1024L * 1024L)
         return target.toInt()
@@ -473,15 +455,15 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
         private val CORE_POOL_SIZE = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
         private val diskCacheLock = Any()
 
-        fun buildThumbnailCacheKey(path: String, width: Int, height: Int, quality: Int = THUMB_QUALITY): String {
+        fun buildThumbnailCacheKey(path : String, width : Int, height : Int, quality : Int = THUMB_QUALITY) : String {
             return "${md5(path)}_${width}x${height}_$quality"
         }
 
-        fun buildOriginalCacheKey(path: String): String {
+        fun buildOriginalCacheKey(path : String) : String {
             return "${md5(path)}_original_$ORIGINAL_QUALITY"
         }
 
-        internal fun calculateInSampleSize(srcWidth: Int, srcHeight: Int, reqWidth: Int, reqHeight: Int): Int {
+        internal fun calculateInSampleSize(srcWidth : Int, srcHeight : Int, reqWidth : Int, reqHeight : Int) : Int {
             var sample = 1
             var width = srcWidth
             var height = srcHeight
@@ -493,7 +475,7 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
             return sample.coerceAtLeast(1)
         }
 
-        private fun md5(value: String): String {
+        private fun md5(value : String) : String {
             val digest = MessageDigest.getInstance("MD5")
             val bytes = digest.digest(value.toByteArray(Charsets.UTF_8))
             return buildString(bytes.size * 2) {
@@ -508,7 +490,7 @@ class DefaultLogImageLoader(context: Context) : ILogImageLoader, ILogImageLoader
 private class BitmapPool {
     private val pool = ConcurrentHashMap<String, MutableList<Bitmap>>()
 
-    fun get(width: Int, height: Int, config: Bitmap.Config): Bitmap? {
+    fun get(width : Int, height : Int, config : Bitmap.Config) : Bitmap? {
         val key = buildKey(width, height, config)
         return synchronized(pool) {
             val bitmaps = pool[key] ?: return null
@@ -518,14 +500,12 @@ private class BitmapPool {
                     return candidate
                 }
             }
-            if (bitmaps.isEmpty()) {
-                pool.remove(key)
-            }
+            pool.remove(key)
             null
         }
     }
 
-    fun put(bitmap: Bitmap) {
+    fun put(bitmap : Bitmap) {
         if (!bitmap.isMutable || bitmap.isRecycled) {
             return
         }
@@ -539,7 +519,7 @@ private class BitmapPool {
         }
     }
 
-    private fun buildKey(width: Int, height: Int, config: Bitmap.Config): String {
+    private fun buildKey(width : Int, height : Int, config : Bitmap.Config) : String {
         return "${width}x${height}_${config.name}"
     }
 

@@ -1,5 +1,7 @@
 [versions]
 agp = "7.2.2"
+androidBasicKtx = "1.1.0"
+disklrucache = "2.0.2"
 espressoCoreVersion = "3.4.0"
 kotlin = "2.0.10"
 jetbrainsKotlinJvm = "2.0.10"
@@ -30,8 +32,10 @@ dataStoreVersion = "1.0.0"
 xxpermissions = "13.2"
 
 [libraries]
+android-basic-ktx = { module = "io.github.hearthappy:android-basic-ktx", version.ref = "androidBasicKtx" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-espresso-core-v340 = { module = "androidx.test.espresso:espresso-core", version.ref = "espressoCoreVersion" }
+disklrucache = { module = "com.jakewharton:disklrucache", version.ref = "disklrucache" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

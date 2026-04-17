@@ -79,8 +79,13 @@
         android:id="@+id/tvMessage"
         style="@style/style_item_text"
         android:layout_width="0dp"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:textSize="14sp"
+        android:gravity="center_vertical"
         app:layout_constraintStart_toStartOf="@+id/tvMessageTitle"
         app:layout_constraintEnd_toStartOf="@+id/ivImageThumb"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tvMessageTitle"
         tools:text="important onCreate d 挺不错的，哈哈" />
 
@@ -92,8 +97,8 @@
         android:contentDescription="@string/preview_image"
         android:scaleType="centerCrop"
         android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@+id/tvMessage"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/tvMessage"
+        app:layout_constraintTop_toTopOf="@+id/tvMessageTitle"
         tools:srcCompat="@android:drawable/ic_menu_gallery" />
 </androidx.constraintlayout.widget.ConstraintLayout>

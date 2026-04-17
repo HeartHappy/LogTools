@@ -90,6 +90,6 @@ dependencies {
     implementation libs.androidx.fragment.ktx
     implementation libs.lifecycle.runtime.ktx
     implementation libs.lifecycle.viewmodel.ktx
-    implementation("io.github.hearthappy:android-basic-ktx:1.1.0")
-    implementation "com.jakewharton:disklrucache:2.0.2"
+    implementation(libs.android.basic.ktx)
+    implementation libs.disklrucache
 }

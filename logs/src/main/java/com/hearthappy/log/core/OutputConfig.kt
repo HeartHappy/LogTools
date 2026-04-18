@@ -10,5 +10,5 @@ package com.hearthappy.log.core
 data class OutputConfig(
     var isLog: Boolean = true,
     var isWriteDatabase: Boolean = true,
-    var storageDirPath: String? = null
+    var storageDirPath: String? = null //图片文件存储目录
 )

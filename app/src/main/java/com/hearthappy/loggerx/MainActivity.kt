@@ -35,7 +35,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         // 启动循环插入日志
-        //        handler.post(logRunnable)
+      //handler.post(logRunnable)
 
         val dbFileSize = LoggerX.getDbFileSize()
         Log.i(TAG, "onCreate: $dbFileSize")

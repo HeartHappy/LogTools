@@ -73,9 +73,9 @@ class MainActivity : AppCompatActivity() {
         LoggerX.COMMON.json(jSONObject.toString())
         MyApp.CUSTOM_SCOPE.d("自定义的作用域日志  测试！！！")
 
-        LoggerX.COMMON.file(copyResourceToTempFile(R.mipmap.test_face, "test_face.png"), message = "裁剪图：")
-        LoggerX.COMMON.file(copyResourceToTempFile(R.mipmap.test1, "test1.jpg"), message = "壁纸图1：")
-        LoggerX.COMMON.file(copyResourceToTempFile(R.mipmap.test2, "test2.jpg"), message = "壁纸图2：")
+        LoggerX.COMMON.image(copyResourceToTempFile(R.mipmap.test_face, "test_face.png"), message = "裁剪图：")
+        LoggerX.COMMON.image(copyResourceToTempFile(R.mipmap.test1, "test1.jpg"), message = "壁纸图1：")
+        LoggerX.COMMON.image(copyResourceToTempFile(R.mipmap.test2, "test2.jpg"), message = "壁纸图2：")
     }
 
     fun deleteLogFile(view : View) {

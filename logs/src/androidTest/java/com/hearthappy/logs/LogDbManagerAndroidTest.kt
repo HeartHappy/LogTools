@@ -58,7 +58,7 @@ class LogDbManagerAndroidTest {
     fun fileLog_shouldPersistAbsolutePathForImageFile() {
         val proxy = LoggerX.createScope("FileScope")
         val imageFile = fakeBitmapFile("image_scope.png", 320, 320, Bitmap.CompressFormat.PNG)
-        val entry = proxy.file(imageFile, message = "img")
+        val entry = proxy.image(imageFile, message = "img")
         assertTrue(entry.filePath.isNotBlank())
         assertTrue(File(entry.filePath).exists())
         val logs = proxy.queryLogs(limit = 20)
@@ -71,7 +71,7 @@ class LogDbManagerAndroidTest {
         val scope = "PreviewScope"
         val proxy = LoggerX.createScope(scope)
         val imageFile = fakeBitmapFile("preview_scope.jpg", 720, 480, Bitmap.CompressFormat.JPEG)
-        val entry = proxy.file(imageFile, message = "preview")
+        val entry = proxy.image(imageFile, message = "preview")
         val id = LogDbManager.queryLogsAdvanced(scope, limit = 1).first()[LoggerX.COLUMN_ID].toString().toInt()
         val loaded = proxy.loadImagePreviewData(id)
         assertNotNull(loaded)
@@ -85,7 +85,7 @@ class LogDbManagerAndroidTest {
         val imageFile = fakeBitmapFile("pressure_scope.jpg", 128, 128, Bitmap.CompressFormat.JPEG)
         val start = System.currentTimeMillis()
         repeat(1000) {
-            proxy.file(imageFile, message = "img-$it")
+            proxy.image(imageFile, message = "img-$it")
         }
         val writeElapsed = System.currentTimeMillis() - start
         val loadStart = System.currentTimeMillis()
@@ -158,7 +158,7 @@ class LogDbManagerAndroidTest {
     fun deleteLogs_shouldRemoveCopiedFiles() {
         val proxy = LoggerX.createScope("DeleteScope")
         val imageFile = fakeBitmapFile("delete_scope.jpg", 256, 256, Bitmap.CompressFormat.JPEG)
-        val entry = proxy.file(imageFile, message = "delete")
+        val entry = proxy.image(imageFile, message = "delete")
         assertTrue(File(entry.filePath).exists())
         val rows = proxy.deleteLogs()
         assertTrue(rows > 0)
@@ -169,7 +169,7 @@ class LogDbManagerAndroidTest {
     fun export_shouldEmbedFileBase64DataUri() {
         val proxy = LoggerX.createScope("ExportScope")
         val imageFile = fakeBitmapFile("export_scope.png", 64, 64, Bitmap.CompressFormat.PNG)
-        val entry = proxy.file(imageFile, message = "export")
+        val entry = proxy.image(imageFile, message = "export")
         val logs = proxy.queryLogs(limit = 10)
         val context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
         val exportFile = LogExportManager.export(context, "ExportScope", logs)

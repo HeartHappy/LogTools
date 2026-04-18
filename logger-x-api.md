@@ -111,7 +111,7 @@ LoggerX.ERROR.w("错误域警告日志")
 ### 4.2 记录文件日志
 ```kotlin
 val file = File(path)
-LoggerX.COMMON.file(file, message = "上传图片日志")
+LoggerX.COMMON.image(file, message = "上传图片日志")
 ```
 
 ## 5. 注意事项

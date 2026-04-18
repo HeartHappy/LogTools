@@ -30,12 +30,12 @@ class LogScopeProxy(private val scope: String): LogScope {
 
     fun xml(xml: String?) = output(LogLevel.DEBUG, xml ?: "Empty XML")
 
-    fun file(filePath: String, message: String = "file-log"): FileLogEntry {
-        return writeFileLog(FileLogStorageManager.validateSource(filePath), message)
+    fun image(imageFilePath: String, message: String = "file-log"): FileLogEntry {
+        return writeFileLog(FileLogStorageManager.validateSource(imageFilePath), message)
     }
 
-    fun file(file: File, message: String = "file-log"): FileLogEntry {
-        return writeFileLog(FileLogStorageManager.validateSource(file), message)
+    fun image(imageFile: File, message: String = "file-log"): FileLogEntry {
+        return writeFileLog(FileLogStorageManager.validateSource(imageFile), message)
     }
 
     private fun output(level: LogLevel, message: String, throwable: Throwable? = null) {

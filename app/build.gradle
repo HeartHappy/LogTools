@@ -57,6 +57,8 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core.v340)
     androidTestImplementation("androidx.test.espresso:espresso-contrib:3.4.0")
 
-    implementation("io.github.hearthappy:android-basic-ktx:1.1.0")
+    implementation libs.android.basic.ktx
+    implementation libs.glide
     implementation project(':logs')
+
 }

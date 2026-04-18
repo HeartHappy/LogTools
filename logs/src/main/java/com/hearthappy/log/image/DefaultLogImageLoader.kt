@@ -10,6 +10,9 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.LruCache
+import android.widget.ImageView
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
 import com.jakewharton.disklrucache.DiskLruCache
 import java.io.File
 import java.io.IOException
@@ -22,12 +25,10 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
-import kotlin.concurrent.withLock
-import androidx.core.graphics.createBitmap
-import androidx.core.graphics.scale
 
 class DefaultLogImageLoader(context : Context) : ILogImageLoader, ILogImageLoaderDiagnostics, DecodeControllable {
     private val appContext = context.applicationContext
@@ -56,60 +57,102 @@ class DefaultLogImageLoader(context : Context) : ILogImageLoader, ILogImageLoade
 
     @Volatile private var diskCache : DiskLruCache? = null
 
-    override fun loadThumbnail(path : String, width : Int, height : Int, callback : (Bitmap?) -> Unit) {
+    override fun loadThumbnail(imageView: ImageView, path : String) {
         val normalizedPath = path.trim()
         if (normalizedPath.isBlank()) {
-            postResult(callback, null)
+            postResult({ bitmap -> 
+                if (imageView.context != null) {  // 确保ImageView仍然有效
+                    imageView.setImageBitmap(bitmap)
+                }
+            }, null)
             return
         }
+        
+        // 获取ImageView的尺寸用于缩略图加载
+        val width = if (imageView.width > 0) imageView.width else 512
+        val height = if (imageView.height > 0) imageView.height else 512
+        
         val requestWidth = normalizeThumbEdge(width)
         val requestHeight = normalizeThumbEdge(height)
         val key = buildThumbnailCacheKey(normalizedPath, requestWidth, requestHeight, THUMB_QUALITY)
         memoryCache.get(key)?.let {
             memoryHits.incrementAndGet()
-            postResult(callback, it)
+            postResult({ bitmap -> 
+                if (imageView.context != null) {  // 确保ImageView仍然有效
+                    imageView.setImageBitmap(bitmap)
+                }
+            }, it)
             return
         }
+        
+        // 创建一个临时回调来处理结果
+        val callback: (Bitmap?) -> Unit = { bitmap ->
+            postResult({ result -> 
+                if (imageView.context != null) {  // 确保ImageView仍然有效
+                    imageView.setImageBitmap(result)
+                }
+            }, bitmap)
+        }
+        
         enqueue(key, callback) {
             decodeThumbnail(normalizedPath, key, requestWidth, requestHeight)
         }
     }
 
-    override fun loadOriginal(path : String, callback : (Bitmap?) -> Unit) {
+    override fun loadOriginal(imageView: ImageView, path : String) {
         val normalizedPath = path.trim()
         if (normalizedPath.isBlank()) {
-            postResult(callback, null)
+            postResult({ bitmap -> 
+                if (imageView.context != null) {  // 确保ImageView仍然有效
+                    imageView.setImageBitmap(bitmap)
+                }
+            }, null)
             return
         }
+        
         val key = buildOriginalCacheKey(normalizedPath)
         memoryCache.get(key)?.let {
             memoryHits.incrementAndGet()
-            postResult(callback, it)
+            postResult({ bitmap -> 
+                if (imageView.context != null) {  // 确保ImageView仍然有效
+                    imageView.setImageBitmap(bitmap)
+                }
+            }, it)
             return
         }
+        
+        // 创建一个临时回调来处理结果
+        val callback: (Bitmap?) -> Unit = { bitmap ->
+            postResult({ result -> 
+                if (imageView.context != null) {  // 确保ImageView仍然有效
+                    imageView.setImageBitmap(result)
+                }
+            }, bitmap)
+        }
+        
         enqueue(key, callback) {
             decodeOriginal(normalizedPath, key)
         }
     }
 
-    override fun clearCache() {
-        val retained = memoryCache.snapshot().values.distinctBy { System.identityHashCode(it) }
-        memoryCache.evictAll()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            retained.forEach(bitmapPool::put)
-        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            retained.forEach(::safeRecycle)
-        }
-        synchronized(diskCacheLock) {
-            runCatching { diskCache?.delete() }
-            diskCache = null
-        }
-        val dir = resolveDiskCacheDir()
-        if (dir.exists()) {
-            dir.deleteRecursively()
-        }
-        dir.mkdirs()
-    }
+//    override fun clearCache() {
+//        val retained = memoryCache.snapshot().values.distinctBy { System.identityHashCode(it) }
+//        memoryCache.evictAll()
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+//            retained.forEach(bitmapPool::put)
+//        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+//            retained.forEach(::safeRecycle)
+//        }
+//        synchronized(diskCacheLock) {
+//            runCatching { diskCache?.delete() }
+//            diskCache = null
+//        }
+//        val dir = resolveDiskCacheDir()
+//        if (dir.exists()) {
+//            dir.deleteRecursively()
+//        }
+//        dir.mkdirs()
+//    }
 
     override fun snapshot() : LogImageLoadStatsSnapshot {
         val requests = decodeRequests.get().coerceAtLeast(1L)

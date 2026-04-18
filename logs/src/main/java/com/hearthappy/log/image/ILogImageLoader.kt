@@ -1,13 +1,11 @@
 package com.hearthappy.log.image
 
-import android.graphics.Bitmap
+import android.widget.ImageView
 
 interface ILogImageLoader {
-    fun loadThumbnail(path: String, width: Int, height: Int, callback: (Bitmap?) -> Unit)
+    fun loadThumbnail(imageView: ImageView, path: String)
 
-    fun loadOriginal(path: String, callback: (Bitmap?) -> Unit)
-
-    fun clearCache()
+    fun loadOriginal(imageView: ImageView, path: String)
 }
 
 data class LogImageLoadStatsSnapshot(

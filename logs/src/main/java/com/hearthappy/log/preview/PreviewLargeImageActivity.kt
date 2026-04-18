@@ -22,15 +22,15 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.OutputStream
 
-class PreviewLargeImageActivity: AppCompatActivity() {
+class PreviewLargeImageActivity : AppCompatActivity() {
 
-    lateinit var viewBinding: ActivityPreviewLargeImageBinding
+    lateinit var viewBinding : ActivityPreviewLargeImageBinding
 
-    private var currentFile: File? = null
-    private var currentMime: String = "image/jpeg"
+    private var currentFile : File? = null
+    private var currentMime : String = "image/jpeg"
     private var scale = 1f
-    private var currentRequestPath: String? = null
-    override fun onCreate(savedInstanceState: Bundle?) {
+    private var currentRequestPath : String? = null
+    override fun onCreate(savedInstanceState : Bundle?) {
         super.onCreate(savedInstanceState)
         viewBinding = ActivityPreviewLargeImageBinding.inflate(layoutInflater)
         setContentView(viewBinding.root)
@@ -51,19 +51,19 @@ class PreviewLargeImageActivity: AppCompatActivity() {
     }
 
 
-    private fun updateScale(newScale: Float) {
+    private fun updateScale(newScale : Float) {
         scale = newScale.coerceIn(0.5f, 4f)
         viewBinding.ivPreview.scaleX = scale
         viewBinding.ivPreview.scaleY = scale
     }
 
     private fun loadImageLazily() {
-        val outputterIndex = intent.getIntExtra(ARG_OUTPUTTER_INDEX, -1)
+        val outPutterIndex = intent.getIntExtra(ARG_OUTPUTTER_INDEX, -1)
         val logId = intent.getIntExtra(ARG_LOG_ID, -1)
         viewBinding.pbLoadingImage.isVisible = true
         lifecycleScope.launch {
             val previewData = withContext(Dispatchers.IO) {
-                val scopeProxy: LogScopeProxy = LoggerX.getOutputters()[outputterIndex].scope.getProxy()
+                val scopeProxy : LogScopeProxy = LoggerX.getOutputters()[outPutterIndex].scope.getProxy()
                 scopeProxy.loadImagePreviewData(logId)
             }
             if (previewData == null) {
@@ -76,7 +76,7 @@ class PreviewLargeImageActivity: AppCompatActivity() {
         }
     }
 
-    private suspend fun loadOriginalFile(previewData: ImagePreviewData) {
+    private suspend fun loadOriginalFile(previewData : ImagePreviewData) {
         val file = withContext(Dispatchers.IO) {
             val resolved = File(previewData.filePath)
             if (resolved.exists() && resolved.isFile && resolved.canRead() && resolved.length() > 0L) {
@@ -98,24 +98,17 @@ class PreviewLargeImageActivity: AppCompatActivity() {
         currentFile = file
         currentMime = detectMimeType(file)
         currentRequestPath = file.absolutePath
-        LogImageLoaderFactory.get(this).loadOriginal(file.absolutePath) { bitmap ->
-            if (currentRequestPath != file.absolutePath) {
-                return@loadOriginal
-            }
-            viewBinding.pbLoadingImage.isVisible = false
-            if (bitmap == null) {
-                Toast.makeText(this, "图片解码失败", Toast.LENGTH_SHORT).show()
-            } else {
-                viewBinding.ivPreview.setImageBitmap(bitmap)
-            }
-        }
+
+        // 直接将ImageView传递给加载器，由加载器负责设置图片
+        LogImageLoaderFactory.get(this).loadOriginal(viewBinding.ivPreview, file.absolutePath)
+        viewBinding.pbLoadingImage.isVisible = false
     }
 
-    private fun isSupportedImageFormat(file: File): Boolean {
+    private fun isSupportedImageFormat(file : File) : Boolean {
         return detectMimeType(file) in SUPPORTED_MIME_TYPES
     }
 
-    private fun detectMimeType(file: File): String {
+    private fun detectMimeType(file : File) : String {
         return runCatching {
             FileInputStream(file).use { input ->
                 val header = ByteArray(12)
@@ -134,7 +127,7 @@ class PreviewLargeImageActivity: AppCompatActivity() {
         }.getOrDefault("application/octet-stream")
     }
 
-    private fun saveToGallery(file: File, mimeType: String) {
+    private fun saveToGallery(file : File, mimeType : String) {
         val resolver = contentResolver
         val suffix = when {
             mimeType.contains("webp") -> "webp"
@@ -150,12 +143,12 @@ class PreviewLargeImageActivity: AppCompatActivity() {
                 put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/LoggerX")
             }
         }
-        val uri: Uri? = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        val uri : Uri? = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
         if (uri == null) {
             Toast.makeText(this, "保存失败", Toast.LENGTH_SHORT).show()
             return
         }
-        val output: OutputStream? = resolver.openOutputStream(uri)
+        val output : OutputStream? = resolver.openOutputStream(uri)
         output.use { out ->
             if (out != null) {
                 FileInputStream(file).use { input ->

@@ -58,11 +58,7 @@ class LogAdapter(private val onImageClick : (Int) -> Unit = {}) : ListAdapter<Ma
                 this.setImageDrawable(null)
                 tag = requestPath
                 if (requestPath != null) {
-                    LogImageLoaderFactory.get(context).loadThumbnail(path = requestPath, width = width.takeIf { it > 0 } ?: DEFAULT_REQUEST_EDGE, height = height.takeIf { it > 0 } ?: DEFAULT_REQUEST_EDGE) { bitmap ->
-                        if (tag == requestPath) {
-                            setImageBitmap(bitmap)
-                        }
-                    }
+                    LogImageLoaderFactory.get(context).loadThumbnail(this, path = requestPath)
                 }
 
                 setOnClickListener { data[LoggerX.COLUMN_ID]?.toString()?.toIntOrNull()?.let(onImageClick) }

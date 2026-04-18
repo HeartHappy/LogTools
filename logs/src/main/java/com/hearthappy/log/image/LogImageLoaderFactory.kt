@@ -32,9 +32,9 @@ object LogImageLoaderFactory {
         (loader as? DecodeControllable)?.resumeDecode()
     }
 
-    fun clearCache() {
-        loader?.clearCache()
-    }
+//    fun clearCache() {
+//        loader?.clearCache()
+//    }
 
     fun snapshot(): LogImageLoadStatsSnapshot? {
         val current = loader ?: return null

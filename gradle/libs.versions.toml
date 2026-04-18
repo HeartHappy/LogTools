@@ -30,6 +30,7 @@ okhttp3Version = "4.9.2"
 
 dataStoreVersion = "1.0.0"
 xxpermissions = "13.2"
+glideVersion = "4.12.0"
 
 [libraries]
 android-basic-ktx = { module = "io.github.hearthappy:android-basic-ktx", version.ref = "androidBasicKtx" }
@@ -37,6 +38,7 @@ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = 
 androidx-espresso-core-v340 = { module = "androidx.test.espresso:espresso-core", version.ref = "espressoCoreVersion" }
 disklrucache = { module = "com.jakewharton:disklrucache", version.ref = "disklrucache" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glideVersion" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }

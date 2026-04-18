@@ -95,7 +95,7 @@
         android:layout_height="64dp"
         android:layout_marginStart="8dp"
         android:contentDescription="@string/preview_image"
-        android:scaleType="centerCrop"
+        android:scaleType="fitCenter"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"

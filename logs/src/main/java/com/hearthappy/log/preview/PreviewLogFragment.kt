@@ -4,7 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
 import android.transition.Slide
-import android.view.View
+import android.util.Log
 import android.view.ViewGroup
 import android.widget.PopupWindow
 import android.widget.Toast
@@ -59,7 +59,7 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
             logAdapter.notifyItemRangeChanged(0, logAdapter.itemCount)
         }
         btnFilter.setOnClickListener {
-            showFilterPopup(btnFilter)
+            showFilterPopup()
         }
         btnDelete.setOnClickListener {
             popupWindow(PopHintBinding.inflate(layoutInflater), width = 300.dp2px(), height = 200.dp2px(), viewEventListener = { vb ->
@@ -127,12 +127,12 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         }
     }
 
-    private fun showFilterPopup(@Suppress("UNUSED_PARAMETER") anchor : View) {
+    private fun showFilterPopup() {
         isConfirmed = false
         viewModel.startFilterEditing()
 
         popupWindow?.dismiss()
-        popupWindow = popupWindow(viewBinding = PopMultiFilterBinding.inflate(layoutInflater), width = ViewGroup.LayoutParams.MATCH_PARENT, height = 800.dp2px(), viewEventListener = { vb ->
+        popupWindow = popupWindow(viewBinding = PopMultiFilterBinding.inflate(layoutInflater), width = ViewGroup.LayoutParams.MATCH_PARENT, height = ViewGroup.LayoutParams.WRAP_CONTENT, viewEventListener = { vb ->
             setupFilterPopup(vb)
             setOnDismissListener {
                 popupJobs.forEach { it.cancel() }
@@ -152,6 +152,8 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         var distinctValues = mapOf<FilterCategory, List<String>>()
         var disabledCategories = setOf<FilterCategory>()
         var pagerAdapter : FilterPagerAdapter? = null
+
+        Log.i("TAG", "setupFilterPopup: ${distinctValues.toList()}")
 
         // 设置 ViewPager2 和 TabLayout
         vb.viewPager.isUserInputEnabled = true
@@ -180,6 +182,7 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
                 val itemsMap = distinctValues.mapValues { (category, values) ->
                     listOf(FilterChipItem.all(requireContext())) + values.map { value ->
                         val isSpecial = category == FilterCategory.LEVEL && (value == "ERROR" || value == "CRITICAL" || value == "FATAL")
+                        Log.i("TAG", "setupFilterPopup: $values")
                         FilterChipItem.fromString(value, isSpecial)
                     }
                 }

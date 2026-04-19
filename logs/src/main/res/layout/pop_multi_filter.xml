@@ -13,19 +13,22 @@
         android:id="@+id/tabLayout"
         android:layout_width="match_parent"
         android:layout_height="48dp"
+        app:tabPaddingStart="@dimen/dp_12"
+        app:tabPaddingEnd="@dimen/dp_12"
+        android:layout_marginTop="@dimen/dp_12"
         app:tabIndicatorColor="@color/filter_text_selected"
         app:tabIndicatorHeight="3dp"
         app:tabSelectedTextColor="@color/filter_text_selected"
         app:tabTextColor="@color/filter_text_normal"
+        android:background="@color/color_base_translucent"
         app:tabMode="scrollable" />
 
     <!-- 内容容器：ViewPager2 + 加载进度 -->
     <FrameLayout
         android:id="@+id/contentContainer"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="220dp"
-        android:maxHeight="400dp">
+        android:layout_height="@dimen/dp_370"
+        >
 
         <!-- ViewPager2 展示不同分类的过滤项 -->
         <androidx.viewpager2.widget.ViewPager2

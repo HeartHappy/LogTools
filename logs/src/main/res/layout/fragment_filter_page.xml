@@ -34,7 +34,6 @@
             android:layout_height="24dp"
             android:layout_marginStart="8dp"
             android:src="@drawable/ic_close_24"
-            android:tint="@color/filter_text_normal"
             android:visibility="gone" />
     </LinearLayout>
 

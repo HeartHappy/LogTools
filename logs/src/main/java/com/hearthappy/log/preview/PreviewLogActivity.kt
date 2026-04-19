@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.viewpager2.adapter.FragmentStateAdapter
-import androidx.viewpager2.widget.ViewPager2
 import com.hearthappy.basic.ext.addListener
 import com.hearthappy.log.LoggerX
 import com.hearthappy.logs.databinding.ActivityPreviewBinding
@@ -18,13 +17,13 @@ class PreviewLogActivity : AppCompatActivity() {
         setContentView(viewBinding.root)
 
         viewBinding.apply {
-            val outputters = LoggerX.getScopes()
-            for (string in outputters) {
+            val outPutters = LoggerX.getScopes()
+            for (string in outPutters) {
                 tabLayout.addTab(tabLayout.newTab().setText(string))
             }
             vp.adapter= object : FragmentStateAdapter(supportFragmentManager, lifecycle){
                 override fun getItemCount(): Int {
-                    return outputters.size
+                    return outPutters.size
                 }
 
                 override fun createFragment(position: Int): Fragment {
@@ -35,6 +34,7 @@ class PreviewLogActivity : AppCompatActivity() {
             tabLayout.addListener(onSelect = {
                 vp.currentItem = it.position
             })
+            ivLogBack.setOnClickListener { finish() }
         }
     }
 }

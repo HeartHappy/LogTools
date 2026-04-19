@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/dp_200"
+    android:padding="@dimen/dp_12"
+    android:background="@drawable/bg_gray_r8"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+
+    <TextView
+        android:id="@+id/tvTitle"
+        android:text="Hint"
+        android:gravity="center"
+        android:textColor="@color/white"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:id="@+id/tvContent"
+        android:gravity="center"
+        android:padding="@dimen/dp_8"
+        app:layout_constraintTop_toBottomOf="@+id/tvTitle"
+        android:layout_width="match_parent"
+        app:layout_constraintBottom_toTopOf="@+id/tvCancel"
+        android:layout_height="0dp"/>
+    <TextView
+        android:id="@+id/tvCancel"
+        android:layout_width="0dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvContent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/tvConfirm"
+        android:gravity="center"
+        android:text="Cancel"
+        android:textColor="#03A9F4"
+        android:textSize="@dimen/sp_12"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        android:layout_height="@dimen/dp_36"/>
+    <TextView
+        android:id="@+id/tvConfirm"
+        android:layout_width="0dp"
+        android:textColor="#F2291A"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvContent"
+        android:gravity="center"
+        android:textSize="@dimen/sp_12"
+        app:layout_constraintStart_toEndOf="@+id/tvCancel"
+        android:text="Confirm"
+        android:layout_height="@dimen/dp_36"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

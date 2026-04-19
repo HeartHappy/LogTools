@@ -117,7 +117,8 @@ object FilterQueryHelper {
 
     private fun matchSet(actual: String?, selected: Set<String>): Boolean {
         if (selected.isEmpty()) return true
-        return actual != null && selected.contains(actual)
+        if (actual.isNullOrEmpty()) return false
+        return selected.contains(actual)
     }
 
     private fun matchTime(actual: String?, selected: Set<String>): Boolean {

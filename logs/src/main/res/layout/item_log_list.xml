@@ -27,12 +27,12 @@
     <TextView
         android:id="@+id/tvLevel"
         android:layout_width="wrap_content"
-        android:layout_height="@dimen/dp_16"
+        android:layout_height="@dimen/dp_12"
         android:gravity="center"
         android:textColor="#FFFFFF"
-        android:textSize="@dimen/sp_10"
+        android:textSize="@dimen/sp_8"
         android:textStyle="bold"
-        android:paddingHorizontal="6dp"
+        android:paddingHorizontal="8dp"
         android:layout_marginStart="@dimen/dp_8"
         app:layout_constraintStart_toEndOf="@+id/tvId"
         app:layout_constraintTop_toTopOf="@+id/tvId"
@@ -45,8 +45,7 @@
         android:layout_height="wrap_content"
         android:textColor="@color/white"
         android:textSize="@dimen/sp_12"
-        android:layout_marginEnd="@dimen/dp_12"
-        app:layout_constraintEnd_toStartOf="@+id/ivImageThumb"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@+id/tvId"
         tools:text="14:22:05.812" />
 
@@ -87,7 +86,6 @@
         android:lineSpacingMultiplier="1.2"
         android:paddingHorizontal="@dimen/dp_8"
         android:layout_marginTop="8dp"
-        android:maxLines="3"
         android:ellipsize="end"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@+id/ivImageThumb"
@@ -104,5 +102,6 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@+id/tvId"
+        app:layout_constraintBottom_toBottomOf="parent"
         tools:srcCompat="@android:drawable/ic_menu_gallery" />
 </androidx.constraintlayout.widget.ConstraintLayout>

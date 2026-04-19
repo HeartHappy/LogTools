@@ -4,4 +4,12 @@
     <color name="white">#FFFFFFFF</color>
     <color name="filter_text_selected">#FF33B5E5</color>
     <color name="filter_text_normal">#FFB0B0B0</color>
+    <!-- Chip 背景颜色 -->
+    <color name="chip_selected">#33B5E5</color>
+    <color name="chip_normal">#626161</color>
+    <color name="chip_critical_selected">#FF5252</color>
+    <color name="chip_critical_normal">#E53935</color>
+    <!-- 深色模式背景 -->
+    <color name="filter_popup_bg">#1E1E1E</color>
+    <color name="filter_popup_content_bg">#2A2A2A</color>
 </resources>

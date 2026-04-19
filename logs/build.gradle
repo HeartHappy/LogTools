@@ -88,6 +88,8 @@ dependencies {
     implementation libs.androidx.swiperefreshlayout
     implementation libs.androidx.activity
     implementation libs.androidx.fragment.ktx
+    implementation libs.androidx.viewpager2
+    implementation libs.google.flexbox
     implementation libs.lifecycle.runtime.ktx
     implementation libs.lifecycle.viewmodel.ktx
     implementation(libs.android.basic.ktx)

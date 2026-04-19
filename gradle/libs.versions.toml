@@ -20,6 +20,8 @@ activity = "1.5.0"
 constraintlayout = "2.0.4"
 lifecycleVersion = "2.5.0"
 swiperefreshlayout = "1.1.0"
+flexboxVersion = "3.0.0"
+viewpager2Version = "1.0.0"
 
 kspVersion = "2.0.10-1.0.24"
 kotlinpoetKsp = "1.12.0"
@@ -48,6 +50,8 @@ androidx-activity = { group = "androidx.activity", name = "activity", version.re
 androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activity" }
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 androidx-swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefreshlayout" }
+google-flexbox = { group = "com.google.android.flexbox", name = "flexbox", version.ref = "flexboxVersion" }
+androidx-viewpager2 = { group = "androidx.viewpager2", name = "viewpager2", version.ref = "viewpager2Version" }
 
 lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleVersion" }
 lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycleVersion" }

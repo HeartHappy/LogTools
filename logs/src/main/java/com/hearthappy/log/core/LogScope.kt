@@ -7,10 +7,16 @@ package com.hearthappy.log.core
  */
 interface LogScope {
     // 获取Scope的标签（用于日志文件命名/格式化）
-    fun getTag(): String
+    fun getTag() : String
 
     // 获取Scope的代理对象
-    fun getProxy(): LogScopeProxy
+    fun getProxy() : LogScopeProxy
+
+    fun delete(time : String) : Int
+
+    fun delete() : Int
+
+    fun doExportAndShare()
 }
 
 

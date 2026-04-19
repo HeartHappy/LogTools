@@ -23,4 +23,8 @@
     <string name="query_background_continue">后台继续</string>
     <string name="query_loading_stage">正在准备查询</string>
     <string name="query_has_more">还有更多数据可继续分页加载</string>
+    <string name="filter_search_hint">搜索筛选项</string>
+    <string name="filter_empty">暂无数据</string>
+    <string name="confirm_deletion">Confirm deletion?</string>
+    <string name="system_logs">系统日志</string>
 </resources>

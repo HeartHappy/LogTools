@@ -115,7 +115,7 @@ class LogAdapter(private val onImageClick : (Int) -> Unit = {}) : ListAdapter<Ma
             // 3. 创建 GradientDrawable (对应 Shape)
             val drawable = GradientDrawable()
             drawable.shape = GradientDrawable.RECTANGLE // 对应 <shape>
-            drawable.cornerRadius = 4f.dp2px() // 对应 android:radius="4dp"
+            drawable.cornerRadius = 50f.dp2px() // 对应 android:radius="4dp"
             drawable.setColor(colorWithAlpha) // 设置填充色
             drawable.setStroke(1.dp2px(),borderColor)
 

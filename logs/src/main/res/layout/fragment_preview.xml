@@ -10,93 +10,54 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btnFilter">
+        app:layout_constraintTop_toTopOf="parent">
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvLogList"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:clipToPadding="false"
+            android:clipChildren="false"
+            android:paddingBottom="@dimen/dp_60"
             app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
             tools:listitem="@layout/item_log_list" />
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <FrameLayout
-        android:id="@+id/loadingOverlay"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:background="#66000000"
-        android:clickable="true"
-        android:focusable="true"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@+id/swipeRefreshLayout"
-        app:layout_constraintTop_toTopOf="@+id/swipeRefreshLayout">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_margin="24dp"
-            android:background="@android:color/white"
-            android:orientation="vertical"
-            android:padding="16dp">
-
-            <TextView
-                android:id="@+id/tvQueryTitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/query_progress_title"
-                android:textColor="@android:color/black"
-                android:textStyle="bold" />
-
-            <ProgressBar
-                android:id="@+id/pbLoading"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:max="100"
-                tools:progress="45" />
-
-            <TextView
-                android:id="@+id/tvQueryProgress"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/query_loading_stage"
-                android:textColor="@android:color/black"
-                tools:text="querying 45%" />
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/switchBackgroundContinue"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/query_background_continue" />
-
-            <Button
-                android:id="@+id/btnCancelQuery"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/query_cancel" />
-        </LinearLayout>
-    </FrameLayout>
-    <ImageButton
-        android:id="@+id/btnSimplify"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:background="@android:color/transparent"
-        android:contentDescription="@string/simplify"
-        android:src="@android:drawable/ic_menu_more"
-        app:layout_constraintEnd_toStartOf="@+id/btnFilter"
-        app:layout_constraintTop_toTopOf="parent" />
-    <ImageButton
-        android:id="@+id/btnFilter"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:background="@android:color/transparent"
-        android:contentDescription="@string/filter_title"
-        android:src="@android:drawable/ic_menu_sort_by_size"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:paddingVertical="@dimen/dp_4"
+        android:paddingHorizontal="@dimen/dp_10"
+        android:layout_marginBottom="@dimen/dp_12"
+        android:layout_marginEnd="@dimen/dp_12"
+        android:background="@drawable/bg_filter_chip_normal"
+        android:layout_height="wrap_content">
+        <ImageButton
+            android:id="@+id/btnShared"
+            android:src="@drawable/ic_shared"
+            app:layout_constraintEnd_toStartOf="@+id/btnDelete"
+            app:layout_constraintBottom_toBottomOf="parent"
+            style="@style/style_icon" />
+        <ImageButton
+            android:id="@+id/btnDelete"
+            style="@style/style_icon"
+            android:src="@drawable/ic_delete"
+            app:layout_constraintEnd_toStartOf="@+id/btnSimplify"
+            app:layout_constraintBottom_toBottomOf="parent" />
+        <ImageButton
+            android:id="@+id/btnSimplify"
+            style="@style/style_icon"
+            android:src="@drawable/ic_streamline"
+            app:layout_constraintEnd_toStartOf="@+id/btnFilter"
+            app:layout_constraintBottom_toBottomOf="parent" />
+        <ImageButton
+            android:id="@+id/btnFilter"
+            style="@style/style_icon"
+            android:src="@drawable/ic_filter"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
 </androidx.constraintlayout.widget.ConstraintLayout>

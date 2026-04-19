@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity() {
       //handler.post(logRunnable)
 
         val dbFileSize = LoggerX.getDbFileSize()
-        Log.i(TAG, "onCreate: $dbFileSize")
+        LoggerX.COMMON.i("onCreate: $dbFileSize")
     }
 
     override fun onDestroy() {
@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
 
     fun deleteAllLogFile(view : View) {
         val clearAll = LoggerX.clear()
-        Log.d(TAG, "deleteAllLogFile: $clearAll")
+        LoggerX.COMMON.d("已清空所有日志")
     }
 
     fun openFile(view : View) {
@@ -102,15 +102,17 @@ class MainActivity : AppCompatActivity() {
 
     fun queryDBLogs(view : View) {
         val distinctValues = LoggerX.IMPORTANT.getDistinctValues(LoggerX.COLUMN_METHOD)
-        Log.i(TAG, "queryDBLogs: ${distinctValues.toList()}")
+        LoggerX.COMMON.d("queryDBLogs: ${distinctValues.toList()}")
         val queryLogs = LoggerX.IMPORTANT.queryLogs(isAsc = false)
-        Log.i("PreviewLogActivity", "onCreate: ${queryLogs.toList().joinToString { "$it\n" }}")
+        LoggerX.COMMON.d("queryDBLogs: ${queryLogs.toList().joinToString { "$it\n" }}")
         startActivity(Intent(this, PreviewLogActivity::class.java))
     }
 
     fun shareFile(view : View) {
+        LoggerX.COMMON.i("测试==========")
+        LoggerX.COMMON.doExportAndShare()
         LoggerX.exportAndShareAll {
-            Log.i(TAG, "shareFile: $it")
+            LoggerX.COMMON.i("shareFile: $it")
         }
     }
 

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    >
+
+    <!-- 搜索框 -->
+    <LinearLayout
+        android:id="@+id/searchContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="@dimen/dp_8"
+        android:gravity="center_vertical">
+
+        <EditText
+            android:id="@+id/etSearch"
+            android:layout_width="0dp"
+            android:layout_height="@dimen/dp_30"
+            android:layout_weight="1"
+            android:background="@drawable/bg_search_input"
+            android:hint="@string/filter_search_hint"
+            android:inputType="text"
+            android:paddingHorizontal="16dp"
+            android:textColor="@color/filter_text_normal"
+            android:textColorHint="#808080"
+            android:textSize="14sp" />
+
+        <ImageView
+            android:id="@+id/btnClearSearch"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="8dp"
+            android:src="@drawable/ic_close_24"
+            android:tint="@color/filter_text_normal"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- 流式网格布局 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvFilterChips"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp"
+        tools:listitem="@layout/item_filter_flow_chip" />
+
+    <!-- 空状态视图 -->
+    <TextView
+        android:id="@+id/tvEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:text="@string/filter_empty"
+        android:textColor="@color/filter_text_normal"
+        android:textSize="14sp"
+        android:visibility="gone" />
+</LinearLayout>

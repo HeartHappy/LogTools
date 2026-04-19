@@ -28,6 +28,15 @@
         app:layout_constraintBottom_toBottomOf="@+id/ivLogBack"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
+
+    <ImageView
+        android:id="@+id/ivStreamline"
+        style="@style/style_icon"
+        android:src="@drawable/ic_log_streamline"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:layout_margin="@dimen/dp_12"
+        />
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tabLayout"
         android:layout_width="match_parent"

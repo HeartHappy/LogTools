@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.PopupWindow
 import android.widget.Toast
 import androidx.core.view.isVisible
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -33,13 +34,14 @@ import kotlinx.coroutines.launch
 
 class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
 
-    private val outputterIndex : Int by lazy { arguments?.getInt("index") ?: 0 }
-    private val scopeProxy : LogScopeProxy by lazy { LoggerX.getOutputters()[outputterIndex].scope.getProxy() }
+    private val outPutterIndex : Int by lazy { arguments?.getInt("index") ?: 0 }
+    private val scopeProxy : LogScopeProxy by lazy { LoggerX.getOutputters()[outPutterIndex].scope.getProxy() }
     private lateinit var logAdapter : LogAdapter
     private var popupWindow : PopupWindow? = null
     private val popupJobs = mutableListOf<Job>()
     private var lastClickTs : Long = 0L
     private var isConfirmed = false
+    private val streamlineStateViewModel by activityViewModels<PreviewOperateViewModel>()
 
     private val viewModel : PreviewViewModel by viewModels {
         PreviewViewModel.Factory(scopeProxy)
@@ -53,21 +55,15 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
             viewModel.refreshAppliedLogs()
         }
 
-        btnSimplify.setOnClickListener {
-            it.isSelected = !it.isSelected
-            logAdapter.isSimplified = it.isSelected
-            logAdapter.notifyItemRangeChanged(0, logAdapter.itemCount)
-        }
         btnFilter.setOnClickListener {
             showFilterPopup()
         }
         btnDelete.setOnClickListener {
             popupWindow(PopHintBinding.inflate(layoutInflater), width = 300.dp2px(), height = 200.dp2px(), viewEventListener = { vb ->
                 vb.apply {
-                    tvContent.text= getString(R.string.confirm_deletion)
+                    tvContent.text = getString(R.string.confirm_deletion)
                     tvConfirm.setOnClickListener { //删除指定作用域的日志
-                        LoggerX.getOutputters()[outputterIndex].scope.delete()
-                        // 删除后刷新日志列表，通过viewModel和StateFlow机制自动更新UI
+                        LoggerX.getOutputters()[outPutterIndex].scope.delete() // 删除后刷新日志列表，通过viewModel和StateFlow机制自动更新UI
                         viewModel.refreshAppliedLogs()
                         dismiss()
                     }
@@ -76,19 +72,14 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
             }).showAtCenter(viewBinding.root)
         }
         btnShared.setOnClickListener {
-            LoggerX.getOutputters()[outputterIndex].scope.doExportAndShare()
+            LoggerX.getOutputters()[outPutterIndex].scope.doExportAndShare()
         }
     }
 
     override fun FragmentPreviewBinding.initView(savedInstanceState : Bundle?) {
         viewBinding.apply {
-            logAdapter = LogAdapter { logId ->
-                startActivity(Intent(context, PreviewLargeImageActivity::class.java).apply {
-                    putExtra(PreviewLargeImageActivity.ARG_OUTPUTTER_INDEX, outputterIndex)
-                    putExtra(PreviewLargeImageActivity.ARG_LOG_ID, logId)
-                }) //                ImagePreviewDialogFragment.newInstance(outputterIndex, logId)
-                //                    .show(childFragmentManager, "image_preview")
-            }
+            val context=context?:return
+            logAdapter = LogAdapter(context,outPutterIndex)
             rvLogList.layoutManager = LinearLayoutManager(requireContext())
             rvLogList.adapter = logAdapter
             rvLogList.setHasFixedSize(true)
@@ -125,6 +116,14 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
                 }
             }
         }
+        lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                streamlineStateViewModel.logShowState.collect { state ->
+                    logAdapter.isSimplified = state
+                    logAdapter.notifyItemRangeChanged(0, logAdapter.itemCount)
+                }
+            }
+        }
     }
 
     private fun showFilterPopup() {
@@ -156,8 +155,9 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         Log.i("TAG", "setupFilterPopup: ${distinctValues.toList()}")
 
         // 设置 ViewPager2 和 TabLayout
-        vb.viewPager.isUserInputEnabled = true
+        vb.viewPager.isUserInputEnabled = false
         vb.viewPager.offscreenPageLimit = 2  // 预加载相邻页面，优化性能
+        //禁止viewpager切换滚动的动画
 
         vb.btnReset.setOnClickListener {
             if (!passDebounce()) return@setOnClickListener
@@ -196,7 +196,7 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
                     vb.viewPager.adapter = pagerAdapter
 
                     // 设置 TabLayout 和 ViewPager2 的关联
-                    TabLayoutMediator(vb.tabLayout, vb.viewPager) { tab, position ->
+                    TabLayoutMediator(vb.tabLayout, vb.viewPager,true,false) { tab, position ->
                         tab.text = categories[position].title
                     }.attach()
                 } else if (pagerAdapter != null && distinctValues.isNotEmpty()) { // 数据加载完成后，更新 adapter 中的数据

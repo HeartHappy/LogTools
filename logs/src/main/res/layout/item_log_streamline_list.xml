@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="@dimen/dp_8"
+    android:layout_marginVertical="@dimen/dp_4"
+    android:background="@drawable/bg_gray_r8"
+    android:paddingHorizontal="@dimen/dp_8">
+
+    <!-- Top row: ID, Level Badge, Time -->
+
+    <LinearLayout
+        android:id="@+id/llId"
+        android:layout_width="@dimen/dp_30"
+        android:layout_height="@dimen/dp_30"
+        android:layout_marginVertical="@dimen/dp_6"
+        android:background="@drawable/bg_id"
+        android:gravity="center"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/tvIdTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ID"
+            android:textColor="#64748B"
+            android:textSize="@dimen/sp_6"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/tvId"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="@dimen/dp_4"
+            android:textColor="#03A9F4"
+            android:textSize="@dimen/sp_7"
+            android:textStyle="bold"
+            app:layout_constraintStart_toEndOf="@+id/tvIdTitle"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="92100" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/llLevel"
+        android:layout_width="wrap_content"
+        app:layout_constraintBottom_toTopOf="@+id/tvMessage"
+        app:layout_constraintStart_toEndOf="@+id/llId"
+        android:gravity="center_vertical"
+        app:layout_constraintTop_toTopOf="@+id/llId"
+        app:layout_constraintVertical_chainStyle="packed"
+        android:layout_height="wrap_content">
+        <TextView
+            android:id="@+id/tvLevel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/dp_8"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:textSize="@dimen/sp_7"
+            tools:text="DEBUG" />
+
+        <TextView
+            android:id="@+id/tvTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/dp_4"
+            android:gravity="center"
+            android:textColor="#64748B"
+            android:textSize="@dimen/sp_7"
+            app:layout_constraintStart_toEndOf="@+id/tvLevel"
+            app:layout_constraintTop_toTopOf="@+id/llId"
+            app:layout_constraintBottom_toTopOf="@+id/tvMessage"
+            app:layout_constraintVertical_chainStyle="packed"
+            tools:text="14:22:05.812" />
+    </LinearLayout>
+    <!-- Message -->
+    <TextView
+        android:id="@+id/tvMessage"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="@dimen/dp_8"
+        android:layout_marginTop="@dimen/dp_6"
+        android:ellipsize="end"
+        android:lineSpacingMultiplier="1.2"
+        android:maxLines="1"
+        android:textColor="@color/translucent_white_20"
+        android:textSize="@dimen/sp_8"
+        app:layout_constraintBottom_toBottomOf="@id/llId"
+        app:layout_constraintEnd_toStartOf="@+id/ivImageThumb"
+        app:layout_constraintStart_toEndOf="@+id/llId"
+        app:layout_constraintTop_toBottomOf="@+id/llLevel"
+        app:layout_constraintVertical_chainStyle="packed"
+        tools:text="External socket established via encrypted handshake. Packet integrity verified by node-7." />
+
+    <!-- Image Thumbnail Icon on the right -->
+    <ImageView
+        android:id="@+id/ivImageThumb"
+        android:layout_width="@dimen/dp_30"
+        android:layout_height="@dimen/dp_30"
+        android:contentDescription="@string/preview_image"
+        android:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:srcCompat="@android:drawable/ic_menu_gallery" />
+</androidx.constraintlayout.widget.ConstraintLayout>

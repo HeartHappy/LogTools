@@ -104,7 +104,7 @@ class MainActivity : AppCompatActivity() {
         val distinctValues = LoggerX.IMPORTANT.getDistinctValues(LoggerX.COLUMN_METHOD)
         LoggerX.COMMON.d("queryDBLogs: ${distinctValues.toList()}")
         val queryLogs = LoggerX.IMPORTANT.queryLogs(isAsc = false)
-        LoggerX.COMMON.d("queryDBLogs: ${queryLogs.toList().joinToString { "$it\n" }}")
+        LoggerX.COMMON.d("queryDBLogs: ${queryLogs.toList().joinToString { "$it" }}")
         startActivity(Intent(this, PreviewLogActivity::class.java))
     }
 

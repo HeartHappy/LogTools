@@ -9,10 +9,13 @@
     <style name="style_icon">
         <item name="android:layout_width">@dimen/dp_24</item>
         <item name="android:layout_height">@dimen/dp_24</item>
-        <item name="android:background">@android:color/transparent</item>
+        <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
         <item name="android:scaleType">centerInside</item>
         <item name="android:layout_marginEnd">@dimen/dp_12</item>
         <item name="android:scaleX">0.8</item>
         <item name="android:scaleY">0.8</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
     </style>
+
 </resources>

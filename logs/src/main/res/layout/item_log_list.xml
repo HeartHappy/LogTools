@@ -6,23 +6,39 @@
     android:layout_height="wrap_content"
     android:background="@drawable/bg_gray_r8"
     android:layout_marginVertical="@dimen/dp_4"
-    android:paddingHorizontal="@dimen/dp_12"
+    android:paddingHorizontal="@dimen/dp_8"
     android:layout_marginHorizontal="@dimen/dp_8"
     android:paddingBottom="@dimen/dp_8"
     >
 
     <!-- Top row: ID, Level Badge, Time -->
+
+    <TextView
+        android:id="@+id/tvIdTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:text="ID:"
+        android:layout_marginTop="@dimen/dp_8"
+        android:textSize="@dimen/sp_8"
+        android:paddingVertical="@dimen/dp_2"
+        android:textStyle="bold"
+        android:textColor="#64748B"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
     <TextView
         android:id="@+id/tvId"
+        android:layout_marginStart="@dimen/dp_4"
         android:layout_marginTop="@dimen/dp_8"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="#33B5E5"
-        android:textSize="@dimen/sp_10"
+        android:textColor="#03A9F4"
+        android:paddingVertical="@dimen/dp_2"
+        android:textSize="@dimen/sp_9"
         android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/tvIdTitle"
         app:layout_constraintTop_toTopOf="parent"
-        tools:text="ID: TX-4092" />
+        app:layout_constraintBottom_toBottomOf="@id/tvIdTitle"
+        tools:text="TX-4092" />
 
     <TextView
         android:id="@+id/tvLevel"
@@ -43,7 +59,7 @@
         android:id="@+id/tvTime"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="@color/white"
+        android:textColor="#64748B"
         android:textSize="@dimen/sp_12"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@+id/tvId"
@@ -56,7 +72,7 @@
         style="@style/style_item_text"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textColor="@color/design_default_color_secondary"
+        android:textColor="#34D399"
         android:textSize="@dimen/sp_12"
         android:layout_marginTop="@dimen/dp_4"
         app:layout_constraintStart_toStartOf="parent"
@@ -68,7 +84,7 @@
         style="@style/style_item_text"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textColor="@color/white"
+        android:textColor="#64748B"
         android:textSize="@dimen/sp_11"
         android:layout_marginTop="@dimen/dp_4"
         app:layout_constraintStart_toStartOf="parent"
@@ -87,8 +103,10 @@
         android:paddingHorizontal="@dimen/dp_8"
         android:layout_marginTop="8dp"
         android:ellipsize="end"
+        android:paddingVertical="@dimen/dp_4"
+        android:background="@drawable/bg_message"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/ivImageThumb"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tvMethod"
         app:layout_constraintBottom_toBottomOf="parent"
         tools:text="External socket established via encrypted handshake. Packet integrity verified by node-7." />
@@ -96,12 +114,12 @@
     <!-- Image Thumbnail Icon on the right -->
     <ImageView
         android:id="@+id/ivImageThumb"
-        android:layout_width="@dimen/dp_36"
-        android:layout_height="@dimen/dp_36"
+        android:layout_width="@dimen/dp_30"
+        android:layout_height="@dimen/dp_30"
         android:contentDescription="@string/preview_image"
-        android:visibility="gone"
+        android:visibility="visible"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/tvId"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/tvTag"
+        app:layout_constraintBottom_toBottomOf="@+id/tvMethod"
         tools:srcCompat="@android:drawable/ic_menu_gallery" />
 </androidx.constraintlayout.widget.ConstraintLayout>

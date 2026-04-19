@@ -1,8 +1,11 @@
 package com.hearthappy.log.preview
 
+import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.alpha
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -44,6 +47,7 @@ class LogAdapter(private val onImageClick : (Int) -> Unit = {}) : ListAdapter<Ma
 
     class LogViewHolder(private val binding : ItemLogListBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(data : Map<String, Any>, onImageClick : (Int) -> Unit, isSimplified : Boolean) = with(binding) {
+            tvId.text= String.format("ID: %s", data[LoggerX.COLUMN_ID])
             tvTime.text = data[LoggerX.COLUMN_TIME].toString()
             tvLevel.text = data[LoggerX.COLUMN_LEVEL].toString()
             level2Color(data[LoggerX.COLUMN_LEVEL].toString())
@@ -71,13 +75,10 @@ class LogAdapter(private val onImageClick : (Int) -> Unit = {}) : ListAdapter<Ma
                 height = if (isSimplified) 36.dp2px() else 64.dp2px()
             }
 
-            tvTagTitle.show(!isSimplified)
             tvTag.show(!isSimplified)
             tvTime.show(!isSimplified)
             tvLevel.show(!isSimplified)
-            tvMethodTitle.show(!isSimplified)
             tvMethod.show(!isSimplified)
-            tvMessageTitle.show(!isSimplified)
         }
 
         fun unbind() = with(binding.ivImageThumb) {
@@ -96,15 +97,31 @@ class LogAdapter(private val onImageClick : (Int) -> Unit = {}) : ListAdapter<Ma
             }
         }
 
-        private fun ItemLogListBinding.level2Color(level : String) {
-            when (level) {
-                LogLevel.VERBOSE.value -> tvLevel.setTextColor(0xFFBBBBBB.toInt())
-                LogLevel.DEBUG.value -> tvLevel.setTextColor(0xFF33B5E5.toInt())
-                LogLevel.INFO.value -> tvLevel.setTextColor(0xFF99CC00.toInt())
-                LogLevel.WARN.value -> tvLevel.setTextColor(0xFFFFBB33.toInt())
-                LogLevel.ERROR.value -> tvLevel.setTextColor(0xFFFF4444.toInt())
-                else -> tvLevel.setTextColor(0xFFBBBBBB.toInt())
+        private fun ItemLogListBinding.level2Color(level: String) {
+            // 1. 先获取对应的颜色值 (复用你之前的逻辑)
+            val baseColor = when (level) {
+                LogLevel.VERBOSE.value -> 0xFFBBBBBB.toInt()
+                LogLevel.DEBUG.value -> 0xFF33B5E5.toInt()
+                LogLevel.INFO.value -> 0xFF99CC00.toInt()
+                LogLevel.WARN.value -> 0xFFFFBB33.toInt()
+                LogLevel.ERROR.value -> 0xFFFF4444.toInt()
+                else -> 0xFFBBBBBB.toInt()
             }
+        tvLevel.setTextColor(baseColor)
+            // 2. 计算 60% 透明度的颜色
+            // 0.6f 转换为 16进制 Alpha 通道大约是 0x99 (255 * 0.6 ≈ 153)
+            val colorWithAlpha = ColorUtils.setAlphaComponent(baseColor, (255 * 0.3f).toInt())
+            val borderColor = ColorUtils.setAlphaComponent(baseColor, (255 * 0.6f).toInt())
+            // 3. 创建 GradientDrawable (对应 Shape)
+            val drawable = GradientDrawable()
+            drawable.shape = GradientDrawable.RECTANGLE // 对应 <shape>
+            drawable.cornerRadius = 4f.dp2px() // 对应 android:radius="4dp"
+            drawable.setColor(colorWithAlpha) // 设置填充色
+            drawable.setStroke(1.dp2px(),borderColor)
+
+            // 4. 设置给 View
+            // 注意：这里假设你的 View 是 tvLevel，如果不是请替换
+            tvLevel.background = drawable
         }
     }
 

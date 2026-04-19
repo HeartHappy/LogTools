@@ -5,16 +5,16 @@
     android:gravity="center_vertical"
     android:minHeight="56dp"
     android:orientation="horizontal"
-    android:paddingStart="8dp"
-    android:paddingEnd="8dp">
+    android:paddingHorizontal="@dimen/dp_8">
 
     <TextView
         android:id="@+id/tvDimension"
-        android:layout_width="96dp"
+        android:layout_width="@dimen/dp_70"
+        android:gravity="center"
         android:layout_height="wrap_content"
-        android:paddingHorizontal="8dp"
-        android:textColor="@color/filter_text_normal"
-        android:textSize="14sp" />
+        android:textColor="@color/white"
+        android:textStyle="bold"
+        android:textSize="@dimen/sp_14" />
 
     <View
         android:layout_width="1dp"

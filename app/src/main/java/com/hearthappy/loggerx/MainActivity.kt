@@ -53,18 +53,23 @@ class MainActivity : AppCompatActivity() {
 
 
     fun outLogAndFile(view : View) {
+        // Log common test messages
         LoggerX.COMMON.d("common test")
         LoggerX.COMMON.d("common onCreate d")
         LoggerX.COMMON.i("common onCreate i")
         LoggerX.COMMON.w("common onCreate w")
 
+        // Log important information
         LoggerX.IMPORTANT.d("important onCreate d 挺不错的，哈哈")
 
+        // Log kernel related events
         LoggerX.KERNEL.d("kernel onCreate d")
         LoggerX.KERNEL.w("kernel onResume w")
         LoggerX.KERNEL.i("kernel onCreate1 i")
         LoggerX.KERNEL.v("kernel onCreate3 v")
         LoggerX.ERROR.e("kernel onCreate2 e", Throwable("runtime error"))
+
+        // Create and log a JSON object
         val jSONObject = JSONObject().apply {
             put("name", "张三")
             put("age", 18)
@@ -73,6 +78,7 @@ class MainActivity : AppCompatActivity() {
         LoggerX.COMMON.json(jSONObject.toString())
         MyApp.CUSTOM_SCOPE.d("自定义的作用域日志  测试！！！")
 
+        // Log image operations
         LoggerX.COMMON.image(copyResourceToTempFile(R.mipmap.test_face, "test_face.png"), message = "裁剪图：")
         LoggerX.COMMON.image(copyResourceToTempFile(R.mipmap.test1, "test1.jpg"), message = "壁纸图1：")
         LoggerX.COMMON.image(copyResourceToTempFile(R.mipmap.test2, "test2.jpg"), message = "壁纸图2：")

@@ -41,8 +41,7 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvFilterChips"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="wrap_content"
         android:clipToPadding="false"
         android:paddingHorizontal="12dp"
         android:paddingVertical="8dp"

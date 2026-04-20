@@ -3,6 +3,7 @@ package com.hearthappy.log.core
 import android.util.Log
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.db.LogDbManager
+import com.hearthappy.log.db.QueryPageResult
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -32,7 +33,7 @@ object DataQueryService {
 
     data class QueryResult(
         val queryId: String,
-        val pageResult: LogDbManager.QueryPageResult,
+        val pageResult: QueryPageResult,
         val fromCache: Boolean
     )
 
@@ -69,7 +70,7 @@ object DataQueryService {
     )
 
     private val sessions = ConcurrentHashMap<String, Session>()
-    private val cache = LruTtlCache<String, LogDbManager.QueryPageResult>(64, 60_000L)
+    private val cache = LruTtlCache<String, QueryPageResult>(64, 60_000L)
 
     fun invalidateCache() {
         cache.clear()

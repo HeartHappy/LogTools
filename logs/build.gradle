@@ -94,4 +94,6 @@ dependencies {
     implementation libs.lifecycle.viewmodel.ktx
     implementation(libs.android.basic.ktx)
     implementation libs.disklrucache
+    //加载libs目录的aar
+    implementation(fileTree(dir: 'libs', include: ['*.aar']))
 }

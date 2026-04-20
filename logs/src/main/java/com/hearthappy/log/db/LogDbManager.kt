@@ -15,8 +15,8 @@ import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-object LogDbManager {
-    data class QueryPageResult(val rows: List<Map<String, Any>>, val totalCount: Int, val page: Int, val limit: Int, val nextPage: Int?, val approxBytes: Int, val hasMore: Boolean, val queryPlan: List<String>)
+internal object LogDbManager {
+
 
     private val dbHelper = LogDbHelper(ContextHolder.getAppContext())
     private val database = dbHelper.writableDatabase

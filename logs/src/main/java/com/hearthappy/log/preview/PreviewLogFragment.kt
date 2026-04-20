@@ -1,11 +1,8 @@
 package com.hearthappy.log.preview
 
-import android.app.Activity
-import android.content.Context
 import android.os.Bundle
 import android.os.SystemClock
 import android.transition.Slide
-import android.view.View
 import android.view.ViewGroup
 import android.widget.PopupWindow
 import android.widget.Toast
@@ -20,11 +17,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.tabs.TabLayoutMediator
 import com.hearthappy.basic.AbsBaseFragment
 import com.hearthappy.basic.ext.dp
-import com.hearthappy.basic.ext.dp2px
 import com.hearthappy.basic.ext.popupWindow
 import com.hearthappy.basic.ext.showAtBottom
 import com.hearthappy.basic.ext.showAtCenter
-import com.hearthappy.basic.tools.screenadaptation.ScreenAdaptHelper
+import com.hearthappy.basic.tools.SlideDirection
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.LogScopeProxy
 import com.hearthappy.log.image.LogImageLoaderFactory
@@ -32,21 +28,22 @@ import com.hearthappy.logs.R
 import com.hearthappy.logs.databinding.FragmentPreviewBinding
 import com.hearthappy.logs.databinding.PopHintBinding
 import com.hearthappy.logs.databinding.PopMultiFilterBinding
+import com.hearthappy.logs.databinding.PopOperationChoiceBinding
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
+class PreviewLogFragment: AbsBaseFragment<FragmentPreviewBinding>() {
 
-    private val outPutterIndex : Int by lazy { arguments?.getInt("index") ?: 0 }
-    private val scopeProxy : LogScopeProxy by lazy { LoggerX.getOutputters()[outPutterIndex].scope.getProxy() }
-    private lateinit var logAdapter : LogAdapter
-    private var popupWindow : PopupWindow? = null
+    private val outPutterIndex: Int by lazy { arguments?.getInt("index") ?: 0 }
+    private val scopeProxy: LogScopeProxy by lazy { LoggerX.getOutputters()[outPutterIndex].scope.getProxy() }
+    private lateinit var logAdapter: LogAdapter
+    private var popupWindow: PopupWindow? = null
     private val popupJobs = mutableListOf<Job>()
-    private var lastClickTs : Long = 0L
+    private var lastClickTs: Long = 0L
     private var isConfirmed = false
     private val streamlineStateViewModel by activityViewModels<PreviewOperateViewModel>()
 
-    private val viewModel : PreviewViewModel by viewModels {
+    private val viewModel: PreviewViewModel by viewModels {
         PreviewViewModel.Factory(scopeProxy)
     }
 
@@ -62,33 +59,22 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
             showFilterPopup()
         }
         btnDelete.setOnClickListener {
-            val popHintBinding = PopHintBinding.inflate(layoutInflater)
-            popupWindow(popHintBinding, width = 290.dp, height = 160.dp, viewEventListener = { vb ->
-                vb.apply {
-                    tvContent.text = getString(R.string.confirm_deletion)
-                    tvConfirm.setOnClickListener { //删除指定作用域的日志
-                        LoggerX.getOutputters()[outPutterIndex].scope.delete() // 删除后刷新日志列表，通过viewModel和StateFlow机制自动更新UI
-                        viewModel.refreshAppliedLogs()
-                        dismiss()
-                    }
-                    tvCancel.setOnClickListener { dismiss() }
-                }
-            }).showAtCenter(viewBinding.root)
+            showDeleteChoicePopup()
         }
         btnShared.setOnClickListener {
-            LoggerX.getOutputters()[outPutterIndex].scope.doExportAndShare()
+            showShareChoicePopup()
         }
     }
 
-    override fun FragmentPreviewBinding.initView(savedInstanceState : Bundle?) {
+    override fun FragmentPreviewBinding.initView(savedInstanceState: Bundle?) {
         viewBinding.apply {
-            val context=context?:return
-            logAdapter = LogAdapter(context,outPutterIndex)
+            val context = context ?: return
+            logAdapter = LogAdapter(context, outPutterIndex)
             rvLogList.layoutManager = LinearLayoutManager(requireContext())
             rvLogList.adapter = logAdapter
             rvLogList.setHasFixedSize(true)
-            rvLogList.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-                override fun onScrollStateChanged(recyclerView : RecyclerView, newState : Int) {
+            rvLogList.addOnScrollListener(object: RecyclerView.OnScrollListener() {
+                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
                     if (newState == RecyclerView.SCROLL_STATE_DRAGGING || newState == RecyclerView.SCROLL_STATE_SETTLING) {
                         LogImageLoaderFactory.pauseDecode()
                     } else {
@@ -127,6 +113,72 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         }
     }
 
+    private fun showDeleteChoicePopup() {
+        val popOperationBinding = PopOperationChoiceBinding.inflate(layoutInflater)
+        popupWindow(popOperationBinding, width = 290.dp, height = ViewGroup.LayoutParams.WRAP_CONTENT, viewEventListener = { vb ->
+            vb.apply {
+                tvTitle.text = getString(R.string.delete_option)
+
+                // 初始化：默认选择单个删除
+                rbOptionSingle.isChecked = true
+
+                tvConfirm.setOnClickListener {
+                    if (rbOptionAll.isChecked) {
+                        LoggerX.clear()
+                        dismiss()
+                        viewModel.refreshAppliedLogs()
+                    } else {
+                        dismiss()
+                        showSingleDeleteConfirmation()
+                    }
+                }
+
+                tvCancel.setOnClickListener { dismiss() }
+            }
+        }).showAtCenter(viewBinding.root)
+    }
+
+    private fun showShareChoicePopup() {
+        val popOperationBinding = PopOperationChoiceBinding.inflate(layoutInflater)
+        popupWindow(popOperationBinding, width = 290.dp, height = ViewGroup.LayoutParams.WRAP_CONTENT, viewEventListener = { vb ->
+            vb.apply {
+                tvTitle.text = getString(R.string.share_option)
+                rbOptionAll.text = getString(R.string.share_all)
+                rbOptionSingle.text = getString(R.string.share_single)
+
+                // 初始化：默认选择全部分享
+                rbOptionAll.isChecked = true
+
+                tvConfirm.setOnClickListener {
+                    if (rbOptionAll.isChecked) {
+                        LoggerX.getOutputters()[outPutterIndex].scope.doExportAndShare()
+                    } else { // 分享单个日志的实现
+                        LoggerX.getOutputters()[outPutterIndex].scope.doExportAndShare()
+                    }
+                    dismiss()
+                }
+
+                tvCancel.setOnClickListener { dismiss() }
+            }
+        }).showAtCenter(viewBinding.root)
+    }
+
+    private fun showSingleDeleteConfirmation() {
+        val popHintBinding = PopHintBinding.inflate(layoutInflater)
+        popupWindow(popHintBinding, width = 290.dp, height = 160.dp, viewEventListener = { vb ->
+            vb.apply {
+                tvContent.text = getString(R.string.confirm_deletion)
+                tvConfirm.setOnClickListener { // 删除单个日志的实现
+                    LoggerX.getOutputters()[outPutterIndex].scope.delete()
+                    viewModel.refreshAppliedLogs()
+                    dismiss()
+                }
+                tvCancel.setOnClickListener { dismiss() }
+            }
+        }).showAtCenter(viewBinding.root)
+    }
+
+
     private fun showFilterPopup() {
         isConfirmed = false
         viewModel.startFilterEditing()
@@ -142,16 +194,16 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
                 }
                 viewModel.clearDistinctCache()
             }
-        }, transition = Slide())
+        }, transition = Slide(), slideDismiss = SlideDirection.VERTICAL)
 
         popupWindow?.showAtBottom(viewBinding.root)
     }
 
-    private fun setupFilterPopup(vb : PopMultiFilterBinding) { // 构建过滤分类列表和数据
+    private fun setupFilterPopup(vb: PopMultiFilterBinding) { // 构建过滤分类列表和数据
         val categories = FilterCategory.filterable
         var distinctValues: Map<FilterCategory, List<String>>
         var disabledCategories: Set<FilterCategory>
-        var pagerAdapter : FilterPagerAdapter? = null
+        var pagerAdapter: FilterPagerAdapter? = null
 
 
         // 设置 ViewPager2 和 TabLayout
@@ -162,6 +214,7 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         vb.btnReset.setOnClickListener {
             if (!passDebounce()) return@setOnClickListener
             viewModel.resetDraft()
+            popupWindow?.dismiss()
         }
 
         vb.btnConfirm.setOnClickListener {
@@ -195,7 +248,7 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
                     vb.viewPager.adapter = pagerAdapter
 
                     // 设置 TabLayout 和 ViewPager2 的关联
-                    TabLayoutMediator(vb.tabLayout, vb.viewPager,true,false) { tab, position ->
+                    TabLayoutMediator(vb.tabLayout, vb.viewPager, true, false) { tab, position ->
                         tab.text = categories[position].title
                     }.attach()
                 } else if (pagerAdapter != null && distinctValues.isNotEmpty()) { // 数据加载完成后，更新 adapter 中的数据
@@ -213,7 +266,7 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         }
     }
 
-    private fun passDebounce() : Boolean {
+    private fun passDebounce(): Boolean {
         val now = SystemClock.elapsedRealtime()
         val pass = now - lastClickTs >= 250
         if (pass) lastClickTs = now
@@ -226,7 +279,7 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
     }
 
     companion object {
-        fun newInstance(i : Int) : PreviewLogFragment {
+        fun newInstance(i: Int): PreviewLogFragment {
             return PreviewLogFragment().apply {
                 arguments = Bundle().apply {
                     putInt("index", i)

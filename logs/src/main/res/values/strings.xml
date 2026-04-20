@@ -26,5 +26,13 @@
     <string name="filter_search_hint">搜索筛选项</string>
     <string name="filter_empty">暂无数据</string>
     <string name="confirm_deletion">Confirm deletion?</string>
+    <string name="delete_option">选择删除方式</string>
+    <string name="share_option">选择分享方式</string>
+    <string name="select_all">全部</string>
+    <string name="select_single">单个</string>
+    <string name="share_all">全部</string>
+    <string name="share_single">当前</string>
+    <string name="cancel">取消</string>
+    <string name="hint">提示</string>
     <string name="system_logs">系统日志</string>
 </resources>

@@ -24,7 +24,7 @@ class FilterPagerAdapter(
         val category = categories[position]
         val fragment = FilterPageFragment.newInstance(
             category = category,
-            items = (items[category] ?: emptyList()).also { Log.i("TAG", "createFragment $position: ${it.toList()}") },
+            items = (items[category] ?: emptyList()),
             selectedValues = selectedState.selectedValues(category),
             isEnabled = !disabledCategories.contains(category)
         )

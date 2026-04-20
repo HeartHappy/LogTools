@@ -14,7 +14,6 @@ import com.hearthappy.log.image.ILogImageLoader
 class LogImageLoaderImpl: ILogImageLoader {
 
     override fun loadThumbnail(imageView: ImageView, path: String) {
-        Log.d("TAG", "loadThumbnail: $path")
         val requestOptions = RequestOptions()
             .override(48.dp2px(),48.dp2px())
             .transform(CenterCrop(),RoundedCorners(8.dp2px())) // 应用圆角变换

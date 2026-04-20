@@ -11,7 +11,7 @@
     <ImageView
         android:id="@+id/ivLogBack"
         style="@style/style_icon"
-        android:layout_margin="@dimen/dp_12"
+        android:layout_margin="12dp"
         android:src="@drawable/ic_log_back"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -22,7 +22,7 @@
         android:layout_height="wrap_content"
         android:text="@string/system_logs"
         android:textColor="@color/color_base_white"
-        android:textSize="@dimen/sp_16"
+        android:textSize="16sp"
         android:textStyle="bold"
         app:layout_constraintBottom_toBottomOf="@+id/ivLogBack"
         app:layout_constraintEnd_toEndOf="parent"
@@ -32,7 +32,7 @@
     <ImageView
         android:id="@+id/ivStreamline"
         style="@style/style_icon"
-        android:layout_margin="@dimen/dp_12"
+        android:layout_margin="12dp"
         android:src="@drawable/ic_log_streamline"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -41,10 +41,10 @@
         android:id="@+id/tabLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/dp_6"
+        android:layout_marginTop="6dp"
         app:tabMinWidth="0dp"
-        app:tabPaddingStart="@dimen/dp_12"
-        app:tabPaddingEnd="@dimen/dp_12"
+        app:tabPaddingStart="12dp"
+        app:tabPaddingEnd="12dp"
         app:tabTextAppearance="@style/MyTabTextStyle"
         app:layout_constraintTop_toBottomOf="@+id/ivLogBack"
         app:tabMode="scrollable" />

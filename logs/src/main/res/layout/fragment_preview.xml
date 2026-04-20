@@ -18,8 +18,8 @@
             android:orientation="vertical"
             android:clipToPadding="false"
             android:clipChildren="false"
-            android:paddingTop="@dimen/dp_12"
-            android:paddingBottom="@dimen/dp_60"
+            android:paddingTop="12dp"
+            android:paddingBottom="60dp"
             app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
             tools:listitem="@layout/item_log_list" />
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
@@ -28,10 +28,10 @@
         android:layout_width="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:paddingVertical="@dimen/dp_4"
-        android:paddingHorizontal="@dimen/dp_10"
-        android:layout_marginBottom="@dimen/dp_12"
-        android:layout_marginEnd="@dimen/dp_12"
+        android:paddingVertical="4dp"
+        android:paddingHorizontal="10dp"
+        android:layout_marginBottom="12dp"
+        android:layout_marginEnd="12dp"
         android:background="@drawable/bg_filter_chip_normal"
         android:layout_height="wrap_content">
         <ImageButton

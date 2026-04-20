@@ -3,10 +3,10 @@
     android:id="@+id/tvChip"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:layout_margin="@dimen/dp_4"
+    android:layout_margin="4dp"
     android:background="@drawable/bg_filter_chip_normal"
     android:gravity="center"
-    android:paddingHorizontal="@dimen/dp_8"
-    android:paddingVertical="@dimen/dp_4"
+    android:paddingHorizontal="8dp"
+    android:paddingVertical="4dp"
     android:textColor="@color/filter_text_normal"
-    android:textSize="@dimen/sp_10" />
+    android:textSize="10sp" />

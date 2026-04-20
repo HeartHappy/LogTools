@@ -7,11 +7,11 @@
     </style>
 
     <style name="style_icon">
-        <item name="android:layout_width">@dimen/dp_24</item>
-        <item name="android:layout_height">@dimen/dp_24</item>
+        <item name="android:layout_width">24dp</item>
+        <item name="android:layout_height">24dp</item>
         <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
         <item name="android:scaleType">centerInside</item>
-        <item name="android:layout_marginEnd">@dimen/dp_12</item>
+        <item name="android:layout_marginEnd">12dp</item>
         <item name="android:scaleX">0.8</item>
         <item name="android:scaleY">0.8</item>
         <item name="android:clickable">true</item>
@@ -19,7 +19,7 @@
     </style>
 
     <style name="MyTabTextStyle">
-        <item name="android:textSize">@dimen/sp_14</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:textAllCaps">false</item>
     </style>
 </resources>

@@ -5,5 +5,5 @@
     <stroke
         android:width="2dp"
         android:color="@color/filter_text_selected" />
-    <padding android:left="@dimen/dp_2" android:top="@dimen/dp_2" android:right="@dimen/dp_2" android:bottom="@dimen/dp_2" />
+    <padding android:left="2dp" android:top="2dp" android:right="2dp" android:bottom="2dp" />
 </shape>

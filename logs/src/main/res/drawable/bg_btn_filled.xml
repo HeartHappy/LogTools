@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <solid android:color="@color/filter_text_selected" /> <!-- 紫色主题，可替换为你的品牌色 -->
-    <corners android:radius="@dimen/dp_24" />
+    <corners android:radius="24dp" />
 </shape>

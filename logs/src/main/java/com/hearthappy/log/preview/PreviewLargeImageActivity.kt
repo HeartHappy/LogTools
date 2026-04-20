@@ -3,13 +3,12 @@ package com.hearthappy.log.preview
 import android.content.ContentValues
 import android.net.Uri
 import android.os.Build
-import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import com.hearthappy.basic.AbsBaseActivity
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.ImagePreviewData
 import com.hearthappy.log.core.LogScopeProxy
@@ -22,36 +21,16 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.OutputStream
 
-class PreviewLargeImageActivity : AppCompatActivity() {
+class PreviewLargeImageActivity: AbsBaseActivity<ActivityPreviewLargeImageBinding>() {
 
-    lateinit var viewBinding : ActivityPreviewLargeImageBinding
 
-    private var currentFile : File? = null
-    private var currentMime : String = "image/jpeg"
+    private var currentFile: File? = null
+    private var currentMime: String = "image/jpeg"
     private var scale = 1f
-    private var currentRequestPath : String? = null
-    override fun onCreate(savedInstanceState : Bundle?) {
-        super.onCreate(savedInstanceState)
-        viewBinding = ActivityPreviewLargeImageBinding.inflate(layoutInflater)
-        setContentView(viewBinding.root)
-
-        viewBinding.btnClose.setOnClickListener { finish() }
-        viewBinding.btnZoomIn.setOnClickListener { updateScale(scale + 0.25f) }
-        viewBinding.btnZoomOut.setOnClickListener { updateScale(scale - 0.25f) }
-        viewBinding.btnRotate.setOnClickListener { viewBinding.ivPreview.rotation = (viewBinding.ivPreview.rotation + 90f) % 360f }
-        viewBinding.btnDownload.setOnClickListener {
-            val file = currentFile
-            if (file == null) {
-                Toast.makeText(this, "图片尚未加载完成", Toast.LENGTH_SHORT).show()
-            } else {
-                saveToGallery(file, currentMime)
-            }
-        }
-        loadImageLazily()
-    }
+    private var currentRequestPath: String? = null
 
 
-    private fun updateScale(newScale : Float) {
+    private fun updateScale(newScale: Float) {
         scale = newScale.coerceIn(0.5f, 4f)
         viewBinding.ivPreview.scaleX = scale
         viewBinding.ivPreview.scaleY = scale
@@ -63,7 +42,7 @@ class PreviewLargeImageActivity : AppCompatActivity() {
         viewBinding.pbLoadingImage.isVisible = true
         lifecycleScope.launch {
             val previewData = withContext(Dispatchers.IO) {
-                val scopeProxy : LogScopeProxy = LoggerX.getOutputters()[outPutterIndex].scope.getProxy()
+                val scopeProxy: LogScopeProxy = LoggerX.getOutputters()[outPutterIndex].scope.getProxy()
                 scopeProxy.loadImagePreviewData(logId)
             }
             if (previewData == null) {
@@ -76,7 +55,7 @@ class PreviewLargeImageActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun loadOriginalFile(previewData : ImagePreviewData) {
+    private suspend fun loadOriginalFile(previewData: ImagePreviewData) {
         val file = withContext(Dispatchers.IO) {
             val resolved = File(previewData.filePath)
             if (resolved.exists() && resolved.isFile && resolved.canRead() && resolved.length() > 0L) {
@@ -104,11 +83,11 @@ class PreviewLargeImageActivity : AppCompatActivity() {
         viewBinding.pbLoadingImage.isVisible = false
     }
 
-    private fun isSupportedImageFormat(file : File) : Boolean {
+    private fun isSupportedImageFormat(file: File): Boolean {
         return detectMimeType(file) in SUPPORTED_MIME_TYPES
     }
 
-    private fun detectMimeType(file : File) : String {
+    private fun detectMimeType(file: File): String {
         return runCatching {
             FileInputStream(file).use { input ->
                 val header = ByteArray(12)
@@ -127,7 +106,7 @@ class PreviewLargeImageActivity : AppCompatActivity() {
         }.getOrDefault("application/octet-stream")
     }
 
-    private fun saveToGallery(file : File, mimeType : String) {
+    private fun saveToGallery(file: File, mimeType: String) {
         val resolver = contentResolver
         val suffix = when {
             mimeType.contains("webp") -> "webp"
@@ -143,12 +122,12 @@ class PreviewLargeImageActivity : AppCompatActivity() {
                 put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/LoggerX")
             }
         }
-        val uri : Uri? = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        val uri: Uri? = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
         if (uri == null) {
             Toast.makeText(this, "保存失败", Toast.LENGTH_SHORT).show()
             return
         }
-        val output : OutputStream? = resolver.openOutputStream(uri)
+        val output: OutputStream? = resolver.openOutputStream(uri)
         output.use { out ->
             if (out != null) {
                 FileInputStream(file).use { input ->
@@ -166,6 +145,31 @@ class PreviewLargeImageActivity : AppCompatActivity() {
         super.onDestroy()
         currentRequestPath = null
         viewBinding.ivPreview.setImageDrawable(null)
+    }
+
+    override fun ActivityPreviewLargeImageBinding.initData() {
+    }
+
+    override fun ActivityPreviewLargeImageBinding.initListener() {
+    }
+
+    override fun ActivityPreviewLargeImageBinding.initView() {
+        viewBinding.btnClose.setOnClickListener { finish() }
+        viewBinding.btnZoomIn.setOnClickListener { updateScale(scale + 0.25f) }
+        viewBinding.btnZoomOut.setOnClickListener { updateScale(scale - 0.25f) }
+        viewBinding.btnRotate.setOnClickListener { viewBinding.ivPreview.rotation = (viewBinding.ivPreview.rotation + 90f) % 360f }
+        viewBinding.btnDownload.setOnClickListener {
+            val file = currentFile
+            if (file == null) {
+                Toast.makeText(this@PreviewLargeImageActivity, "图片尚未加载完成", Toast.LENGTH_SHORT).show()
+            } else {
+                saveToGallery(file, currentMime)
+            }
+        }
+        loadImageLazily()
+    }
+
+    override fun ActivityPreviewLargeImageBinding.initViewModelListener() {
     }
 
     companion object {

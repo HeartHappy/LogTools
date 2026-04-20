@@ -1,10 +1,11 @@
 package com.hearthappy.log.preview
 
-import android.content.Intent
+import android.app.Activity
+import android.content.Context
 import android.os.Bundle
 import android.os.SystemClock
 import android.transition.Slide
-import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import android.widget.PopupWindow
 import android.widget.Toast
@@ -18,10 +19,12 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.tabs.TabLayoutMediator
 import com.hearthappy.basic.AbsBaseFragment
+import com.hearthappy.basic.ext.dp
 import com.hearthappy.basic.ext.dp2px
 import com.hearthappy.basic.ext.popupWindow
 import com.hearthappy.basic.ext.showAtBottom
 import com.hearthappy.basic.ext.showAtCenter
+import com.hearthappy.basic.tools.screenadaptation.ScreenAdaptHelper
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.LogScopeProxy
 import com.hearthappy.log.image.LogImageLoaderFactory
@@ -59,7 +62,8 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
             showFilterPopup()
         }
         btnDelete.setOnClickListener {
-            popupWindow(PopHintBinding.inflate(layoutInflater), width = 300.dp2px(), height = 200.dp2px(), viewEventListener = { vb ->
+            val popHintBinding = PopHintBinding.inflate(layoutInflater)
+            popupWindow(popHintBinding, width = 290.dp, height = 160.dp, viewEventListener = { vb ->
                 vb.apply {
                     tvContent.text = getString(R.string.confirm_deletion)
                     tvConfirm.setOnClickListener { //删除指定作用域的日志
@@ -100,12 +104,9 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
         lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    viewModel.logUiState.collect { state -> //                        loadingOverlay.isVisible = state.loading
+                    viewModel.logUiState.collect { state ->
                         swipeRefreshLayout.isRefreshing = false
-                        btnFilter.isEnabled = !state.loading //                        btnCancelQuery.isEnabled = state.canCancel
-                        //                        switchBackgroundContinue.isChecked = state.keepInBackground
-                        //                        pbLoading.progress = state.progressPercent
-                        //                        tvQueryProgress.text = "${state.progressStage} ${state.progressPercent}%"
+                        btnFilter.isEnabled = !state.loading
                         logAdapter.submitLogs(state.logs)
                     }
                 }
@@ -148,11 +149,10 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
 
     private fun setupFilterPopup(vb : PopMultiFilterBinding) { // 构建过滤分类列表和数据
         val categories = FilterCategory.filterable
-        var distinctValues = mapOf<FilterCategory, List<String>>()
-        var disabledCategories = setOf<FilterCategory>()
+        var distinctValues: Map<FilterCategory, List<String>>
+        var disabledCategories: Set<FilterCategory>
         var pagerAdapter : FilterPagerAdapter? = null
 
-        Log.i("TAG", "setupFilterPopup: ${distinctValues.toList()}")
 
         // 设置 ViewPager2 和 TabLayout
         vb.viewPager.isUserInputEnabled = false
@@ -182,7 +182,6 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
                 val itemsMap = distinctValues.mapValues { (category, values) ->
                     listOf(FilterChipItem.all(requireContext())) + values.map { value ->
                         val isSpecial = category == FilterCategory.LEVEL && (value == "ERROR" || value == "CRITICAL" || value == "FATAL")
-                        Log.i("TAG", "setupFilterPopup: $values")
                         FilterChipItem.fromString(value, isSpecial)
                     }
                 }
@@ -200,8 +199,8 @@ class PreviewLogFragment : AbsBaseFragment<FragmentPreviewBinding>() {
                         tab.text = categories[position].title
                     }.attach()
                 } else if (pagerAdapter != null && distinctValues.isNotEmpty()) { // 数据加载完成后，更新 adapter 中的数据
-                    pagerAdapter?.updateItems(itemsMap) // 同步选中状态
-                    pagerAdapter?.updateSelection(viewModel.draftState.value)
+                    pagerAdapter.updateItems(itemsMap) // 同步选中状态
+                    pagerAdapter.updateSelection(viewModel.draftState.value)
                 }
             }
         }

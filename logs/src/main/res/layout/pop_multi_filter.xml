@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/rootContainer"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -13,22 +12,23 @@
         android:id="@+id/tabLayout"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        app:tabPaddingStart="@dimen/dp_12"
-        app:tabPaddingEnd="@dimen/dp_12"
         android:layout_marginTop="@dimen/dp_12"
+        android:background="@color/color_base_translucent"
+        app:tabMinWidth="0dp"
+        app:tabTextAppearance="@style/MyTabTextStyle"
         app:tabIndicatorColor="@color/filter_text_selected"
         app:tabIndicatorHeight="3dp"
+        app:tabMode="scrollable"
+        app:tabPaddingEnd="@dimen/dp_12"
+        app:tabPaddingStart="@dimen/dp_12"
         app:tabSelectedTextColor="@color/filter_text_selected"
-        app:tabTextColor="@color/filter_text_normal"
-        android:background="@color/color_base_translucent"
-        app:tabMode="scrollable" />
+        app:tabTextColor="@color/filter_text_normal" />
 
     <!-- 内容容器：ViewPager2 + 加载进度 -->
     <FrameLayout
         android:id="@+id/contentContainer"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/dp_370"
-        >
+        android:layout_height="@dimen/dp_500">
 
         <!-- ViewPager2 展示不同分类的过滤项 -->
         <androidx.viewpager2.widget.ViewPager2
@@ -49,24 +49,36 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/dp_12"
         android:gravity="end"
         android:orientation="horizontal"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="8dp">
+        android:paddingHorizontal="12dp">
 
+        <!-- 重置按钮：使用描边样式，视觉较轻 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnReset"
-            style="@style/Widget.MaterialComponents.Button.TextButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/filter_reset" />
+            android:text="@string/filter_reset"
+            android:textColor="@color/filter_text_selected"
+            android:textSize="@dimen/sp_14"
+            app:cornerRadius="28dp"
+            app:strokeColor="@color/filter_text_selected"
+            app:strokeWidth="1dp" />
 
+        <!-- 确认按钮：使用实心样式，视觉较重，作为主要操作 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnConfirm"
-            style="@style/Widget.MaterialComponents.Button.TextButton"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/filter_confirm" />
+            android:layout_marginStart="@dimen/dp_12"
+            android:text="@string/filter_confirm"
+            android:textColor="@color/color_base_white"
+            android:textSize="@dimen/sp_14"
+            app:backgroundTint="@color/filter_text_selected"
+            app:cornerRadius="28dp" />
     </LinearLayout>
 
 </LinearLayout>

@@ -1,6 +1,7 @@
 package com.hearthappy.loggerx
 
 import android.app.Application
+import com.hearthappy.basic.tools.screenadaptation.ScreenAdaptHelper
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.interceptor.LogInterceptorAdapter
 
@@ -10,12 +11,11 @@ class MyApp: Application() {
         super.onCreate() //日志框架初始化
         LoggerX.init(this)
         LoggerX.registerScope(LogInterceptorAdapter(), CUSTOM_SCOPE)
-
-        // 开启按日期自动清理，保留 7 天数据
-//        LoggerX.enableAutoClean(3)
+        ScreenAdaptHelper.setup(this) // 开启按日期自动清理，保留 7 天数据
+        //        LoggerX.enableAutoClean(3)
 
         // 开启按文件大小自动清理，最大 1MB，每次清理 0.2MB
-//        LoggerX.enableAutoClean(1.0, 0.5)
+        //        LoggerX.enableAutoClean(1.0, 0.5)
     }
 
     companion object {

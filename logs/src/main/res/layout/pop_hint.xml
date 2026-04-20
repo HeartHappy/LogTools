@@ -1,54 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="@dimen/dp_200"
-    android:padding="@dimen/dp_12"
-    android:background="@drawable/bg_gray_r8"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="@dimen/dp_290"
+    android:layout_height="@dimen/dp_160"
+    android:layout_gravity="center"
+    android:layout_marginStart="@dimen/dp_16"
+    android:layout_marginEnd="@dimen/dp_16"
+    android:background="@drawable/bg_dialog_card"
+    android:padding="@dimen/dp_16"> <!-- 使用圆角背景 -->
 
-
+    <!-- 标题 -->
     <TextView
         android:id="@+id/tvTitle"
-        android:text="Hint"
-        android:gravity="center"
-        android:textColor="@color/white"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/dp_8"
+        android:gravity="center"
+        android:text="@string/hint"
+        android:textColor="@color/text_primary"
+        android:textSize="@dimen/sp_18"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- 内容 -->
     <TextView
         android:id="@+id/tvContent"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/dp_12"
         android:gravity="center"
         android:padding="@dimen/dp_8"
-        app:layout_constraintTop_toBottomOf="@+id/tvTitle"
-        android:layout_width="match_parent"
-        app:layout_constraintBottom_toTopOf="@+id/tvCancel"
-        android:layout_height="0dp"/>
+        android:textColor="@color/text_secondary"
+        android:textSize="@dimen/sp_14"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvTitle" />
+
+    <!-- 按钮容器 (使用 ConstraintLayout 内部的链或嵌套 LinearLayout) -->
+    <!-- 这里使用 Guideline 和 Chains 来实现完美的 1:1 比例按钮 -->
     <TextView
         android:id="@+id/tvCancel"
         android:layout_width="0dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tvContent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/tvConfirm"
+        android:layout_height="@dimen/dp_36"
+        android:layout_marginTop="@dimen/dp_12"
+        android:layout_marginEnd="@dimen/dp_8"
+        android:background="@drawable/bg_btn_outline"
         android:gravity="center"
-        android:text="Cancel"
-        android:textColor="#03A9F4"
-        android:textSize="@dimen/sp_12"
-        app:layout_constraintHorizontal_chainStyle="packed"
-        android:layout_height="@dimen/dp_36"/>
+        android:text="@string/cancel"
+        android:textColor="@color/filter_text_selected"
+        android:textSize="@dimen/sp_14"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/guideline"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvContent" />
+
     <TextView
         android:id="@+id/tvConfirm"
         android:layout_width="0dp"
-        android:textColor="#F2291A"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tvContent"
+        android:layout_height="@dimen/dp_36"
+        android:layout_marginStart="@dimen/dp_8"
+        android:layout_marginTop="@dimen/dp_12"
+        android:background="@drawable/bg_btn_filled"
         android:gravity="center"
-        android:textSize="@dimen/sp_12"
-        app:layout_constraintStart_toEndOf="@+id/tvCancel"
-        android:text="Confirm"
-        android:layout_height="@dimen/dp_36"/>
+        android:text="@string/filter_confirm"
+        android:textColor="@color/color_base_white"
+        android:textSize="@dimen/sp_14"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@+id/guideline"
+        app:layout_constraintTop_toBottomOf="@+id/tvContent" />
+
+    <!-- 垂直引导线，用于平分按钮区域 -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.5" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

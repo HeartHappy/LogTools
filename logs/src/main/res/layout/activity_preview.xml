@@ -11,39 +11,43 @@
     <ImageView
         android:id="@+id/ivLogBack"
         style="@style/style_icon"
+        android:layout_margin="@dimen/dp_12"
         android:src="@drawable/ic_log_back"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:layout_margin="@dimen/dp_12"
-        />
+        app:layout_constraintTop_toTopOf="parent" />
+
     <TextView
         android:id="@+id/tvLogTitle"
-        android:text="@string/system_logs"
-        android:textSize="@dimen/sp_16"
-        android:textColor="@color/white"
-        android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/ivLogBack"
-        app:layout_constraintBottom_toBottomOf="@+id/ivLogBack"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:text="@string/system_logs"
+        android:textColor="@color/color_base_white"
+        android:textSize="@dimen/sp_16"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="@+id/ivLogBack"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/ivLogBack" />
 
     <ImageView
         android:id="@+id/ivStreamline"
         style="@style/style_icon"
+        android:layout_margin="@dimen/dp_12"
         android:src="@drawable/ic_log_streamline"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:layout_margin="@dimen/dp_12"
-        />
+        app:layout_constraintTop_toTopOf="parent" />
+
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tabLayout"
         android:layout_width="match_parent"
-        android:layout_marginTop="@dimen/dp_6"
-        app:tabMode="scrollable"
         android:layout_height="wrap_content"
-        app:layout_constraintTop_toBottomOf="@+id/ivLogBack" />
+        android:layout_marginTop="@dimen/dp_6"
+        app:tabMinWidth="0dp"
+        app:tabPaddingStart="@dimen/dp_12"
+        app:tabPaddingEnd="@dimen/dp_12"
+        app:tabTextAppearance="@style/MyTabTextStyle"
+        app:layout_constraintTop_toBottomOf="@+id/ivLogBack"
+        app:tabMode="scrollable" />
 
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/vp"

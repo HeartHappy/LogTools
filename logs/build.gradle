@@ -83,6 +83,17 @@ afterEvaluate {
             }
         }
     }
+    signing {
+        //gpg签名认证
+        sign(publishing.publications.release)
+    }
+    // 设置 zipRepo 任务依赖于发布任务
+    tasks.named('zipRepo') { dependsOn(publishReleasePublicationToMavenRepository) }
+
+    // 确保发布任务完成后总是执行 zipRepo 任务，即使发布任务失败
+    tasks.named('publishReleasePublicationToMavenRepository') {
+        finalizedBy(tasks.named('zipRepo'))
+    }
 }
 
 

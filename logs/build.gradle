@@ -29,8 +29,8 @@ afterEvaluate {
             release(MavenPublication) {
                 from components.release
                 groupId = 'com.github.hearthappy'
-                artifactId = 'logtools'
-                version = '1.0.6'
+                artifactId = 'loggerx'
+                version = '1.1.0'
                 artifacts {
                     archives(javadocJar)
                     archives(sourceJar)
@@ -83,17 +83,18 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core.v340)
     implementation libs.androidx.appcompat
-    implementation libs.material
     implementation libs.androidx.constraintlayout
-    implementation libs.androidx.swiperefreshlayout
     implementation libs.androidx.activity
     implementation libs.androidx.fragment.ktx
     implementation libs.androidx.viewpager2
-    implementation libs.google.flexbox
     implementation libs.lifecycle.runtime.ktx
     implementation libs.lifecycle.viewmodel.ktx
-    implementation(libs.android.basic.ktx)
-    implementation libs.disklrucache
+    implementation libs.material
+    //作为依赖，需要打包到项目中去，使用api声明，告诉主工程，需要下载api的库，否则，该model的库都不会打包进项目中去
+    api libs.google.flexbox
+    api libs.androidx.swiperefreshlayout
+    api(libs.android.basic.ktx)
+    api libs.disklrucache
     //加载libs目录的aar
     implementation(fileTree(dir: 'libs', include: ['*.aar']))
 }

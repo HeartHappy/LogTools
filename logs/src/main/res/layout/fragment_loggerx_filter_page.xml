@@ -20,7 +20,7 @@
             android:layout_width="0dp"
             android:layout_height="30dp"
             android:layout_weight="1"
-            android:background="@drawable/bg_search_input"
+            android:background="@drawable/bg_log_search_input"
             android:hint="@string/filter_search_hint"
             android:inputType="text"
             android:paddingHorizontal="16dp"
@@ -33,7 +33,7 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:layout_marginStart="8dp"
-            android:src="@drawable/ic_close_24"
+            android:src="@drawable/ic_log_close_24"
             android:visibility="gone" />
     </LinearLayout>
 

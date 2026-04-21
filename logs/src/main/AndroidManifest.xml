@@ -5,13 +5,20 @@
     <application >
 
         <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="com.hearthappy.loggerx.fileprovider"
+            android:name="com.hearthappy.log.provider.LoggerFileProvider"
+            android:authorities="${applicationId}.loggerx.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <activity
+            android:name="com.hearthappy.log.preview.PreviewLargeImageActivity"
+            android:exported="false" />
+        <activity
+            android:name="com.hearthappy.log.preview.PreviewLogActivity"
+            android:exported="false" />
     </application>
 </manifest>

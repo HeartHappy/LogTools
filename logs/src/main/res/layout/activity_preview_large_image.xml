@@ -107,7 +107,7 @@
             android:paddingTop="8dp"
             android:paddingEnd="8dp"
             android:scaleType="centerInside"
-            android:src="@drawable/ic_download_24"
+            android:src="@drawable/ic_log_download_24"
             android:tint="?attr/colorOnSurface" />
 
         <ImageButton
@@ -120,7 +120,7 @@
             android:paddingTop="8dp"
             android:paddingEnd="8dp"
             android:scaleType="centerInside"
-            android:src="@drawable/ic_close_24"
+            android:src="@drawable/ic_log_close_24"
             android:tint="?attr/colorOnSurface" />
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

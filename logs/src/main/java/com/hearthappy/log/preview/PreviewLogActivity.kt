@@ -6,16 +6,16 @@ import com.hearthappy.basic.ext.addListener
 import com.hearthappy.basic.ext.addStateAdapter
 import com.hearthappy.log.LoggerX
 import com.hearthappy.logs.R
-import com.hearthappy.logs.databinding.ActivityPreviewBinding
+import com.hearthappy.logs.databinding.ActivityLoggerxPreviewBinding
 
-class PreviewLogActivity: AbsBaseActivity<ActivityPreviewBinding>() {
+class PreviewLogActivity: AbsBaseActivity<ActivityLoggerxPreviewBinding>() {
     private val viewModel by viewModels<PreviewOperateViewModel>()
 
 
-    override fun ActivityPreviewBinding.initData() {
+    override fun ActivityLoggerxPreviewBinding.initData() {
     }
 
-    override fun ActivityPreviewBinding.initListener() {
+    override fun ActivityLoggerxPreviewBinding.initListener() {
         vp.addListener { tabLayout.getTabAt(it)?.select() }
         tabLayout.addListener(onSelect = {
             vp.currentItem = it.position
@@ -28,14 +28,12 @@ class PreviewLogActivity: AbsBaseActivity<ActivityPreviewBinding>() {
         }
     }
 
-    override fun ActivityPreviewBinding.initView() {
-        viewBinding.apply {
-            val outPutters = LoggerX.getScopes()
-            outPutters.forEach { tabLayout.addTab(tabLayout.newTab().setText(it)) }
-            vp.addStateAdapter(supportFragmentManager, lifecycle, outPutters.size) { PreviewLogFragment.newInstance(it) }
-        }
+    override fun ActivityLoggerxPreviewBinding.initView() {
+        val outPutters = LoggerX.getScopes()
+        outPutters.forEach { tabLayout.addTab(tabLayout.newTab().setText(it)) }
+        vp.addStateAdapter(supportFragmentManager, lifecycle, outPutters.size) { PreviewLogFragment.newInstance(it) }
     }
 
-    override fun ActivityPreviewBinding.initViewModelListener() {
+    override fun ActivityLoggerxPreviewBinding.initViewModelListener() {
     }
 }

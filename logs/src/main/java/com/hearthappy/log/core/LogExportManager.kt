@@ -108,8 +108,45 @@ object LogExportManager {
         }.start()
     }
 
-    private fun exportScopePaged(
-        context: Context,
+    fun exportAllFiles(
+        exportAll: Boolean,
+        limit: Int,
+        format: ExportFormat = ExportFormat.CSV,
+        onProgress: ((Int) -> Unit)? = null,
+        onFilesReady: ((List<File>) -> Unit)? = null
+    ) {
+        Thread {
+            val scopes = LogOutputterManager.getScopes().toList()
+            if (scopes.isEmpty()) {
+                onFilesReady?.invoke(emptyList())
+                return@Thread
+            }
+            val exportedFiles = mutableListOf<File>()
+            val totalScopes = scopes.size.coerceAtLeast(1)
+            scopes.forEachIndexed { index, scope ->
+                val startPercent = index * 100 / totalScopes
+                val endPercent = (index + 1) * 100 / totalScopes
+                val file = exportScopePaged(
+                    context = ContextHolder.getAppContext(),
+                    scopeTag = scope,
+                    exportAll = exportAll,
+                    limit = limit,
+                    format = format
+                ) { progress ->
+                    val overall = startPercent + ((endPercent - startPercent) * progress / 100)
+                    onProgress?.invoke(overall.coerceIn(0, 100))
+                }
+                if (file != null) {
+                    exportedFiles += file
+                }
+            }
+            onProgress?.invoke(100)
+            onFilesReady?.invoke(exportedFiles)
+        }.start()
+    }
+
+    internal fun exportScopePaged(
+        context: Context = ContextHolder.getAppContext(),
         scopeTag: String,
         exportAll: Boolean,
         limit: Int,

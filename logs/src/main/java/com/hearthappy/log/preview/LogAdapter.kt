@@ -10,11 +10,12 @@ import androidx.core.graphics.ColorUtils
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.hearthappy.basic.ext.dp2px
+import com.hearthappy.basic.ext.dp
 import com.hearthappy.basic.ext.show
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.LogLevel
 import com.hearthappy.log.image.LogImageLoaderFactory
+import com.hearthappy.logs.databinding.ItemLogEmptyBinding
 import com.hearthappy.logs.databinding.ItemLogListBinding
 import com.hearthappy.logs.databinding.ItemLogStreamlineListBinding
 
@@ -28,20 +29,27 @@ class LogAdapter(val context : Context, val outPutterIndex : Int) : ListAdapter<
 
     override fun onCreateViewHolder(parent : ViewGroup, viewType : Int) : RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
-        return if (viewType == TYPE_SIMPLIFIED) {
-            val binding = ItemLogStreamlineListBinding.inflate(inflater, parent, false)
-            SimplifiedLogViewHolder(binding)
-        } else {
-            val binding = ItemLogListBinding.inflate(inflater, parent, false)
-            FullLogViewHolder(binding)
+        return when (viewType) {
+            TYPE_EMPTY -> {
+                val binding = ItemLogEmptyBinding.inflate(inflater, parent, false)
+                EmptyViewHolder(binding)
+            }
+            TYPE_SIMPLIFIED -> {
+                val binding = ItemLogStreamlineListBinding.inflate(inflater, parent, false)
+                SimplifiedLogViewHolder(binding)
+            }
+            else -> {
+                val binding = ItemLogListBinding.inflate(inflater, parent, false)
+                FullLogViewHolder(binding)
+            }
         }
     }
 
     override fun onBindViewHolder(holder : RecyclerView.ViewHolder, position : Int) {
-        val item = getItem(position)
         when (holder) {
-            is FullLogViewHolder -> holder.bind(item)
-            is SimplifiedLogViewHolder -> holder.bind(item)
+            is FullLogViewHolder -> holder.bind(getItem(position))
+            is SimplifiedLogViewHolder -> holder.bind(getItem(position))
+            is EmptyViewHolder -> { /* 空布局无需绑定数据 */ }
         }
     }
 
@@ -51,17 +59,36 @@ class LogAdapter(val context : Context, val outPutterIndex : Int) : ListAdapter<
         super.onViewRecycled(holder)
     }
 
+    // 核心修改：当数据为空时，返回 1 个 Item 用于显示空布局
+    override fun getItemCount(): Int {
+        val actualCount = super.getItemCount()
+        return if (actualCount == 0) 1 else actualCount
+    }
+
+    // 核心修改：根据数据量返回对应的视图类型
+    override fun getItemViewType(position: Int): Int {
+        val item = getItem(position)
+        if (item.containsKey("IS_EMPTY_PLACEHOLDER")) {
+            return TYPE_EMPTY
+        }
+        return if (isSimplified) TYPE_SIMPLIFIED else TYPE_FULL
+    }
+
     override fun getItemId(position : Int) : Long {
+        if (super.getItemCount() == 0) return -1L // 空布局的固定 ID
         return getItem(position)[LoggerX.COLUMN_ID]?.toString()?.toLongOrNull() ?: RecyclerView.NO_ID
     }
 
-    fun submitLogs(logs : List<Map<String, Any>>) { // ListAdapter 内置 DiffUtil，数据量较大时可增量刷新避免全量闪烁
-        submitList(logs.toList())
+    fun submitLogs(logs: List<Map<String, Any>>) {
+        if (logs.isEmpty()) {
+            // 如果为空，提交一个带特殊标记的 Map，确保 ListAdapter 认为数量是 1
+            submitList(listOf(mapOf("IS_EMPTY_PLACEHOLDER" to true)))
+        } else {
+            submitList(logs.toList())
+        }
     }
 
-    override fun getItemViewType(position : Int) : Int {
-        return if (isSimplified) TYPE_SIMPLIFIED else TYPE_FULL
-    }
+    // --- ViewHolder 定义 ---
 
     inner class FullLogViewHolder(private val binding : ItemLogListBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(data : Map<String, Any>) = with(binding) {
@@ -103,8 +130,6 @@ class LogAdapter(val context : Context, val outPutterIndex : Int) : ListAdapter<
             setImageDrawable(null)
             setOnClickListener(null)
         }
-
-
     }
 
     inner class SimplifiedLogViewHolder(private val binding : ItemLogStreamlineListBinding) : RecyclerView.ViewHolder(binding.root) {
@@ -146,7 +171,10 @@ class LogAdapter(val context : Context, val outPutterIndex : Int) : ListAdapter<
         }
     }
 
-    private fun level2Color(tvLevel : TextView, level : String,isBackground: Boolean=true) { // 1. 先获取对应的颜色值 (复用你之前的逻辑)
+    // 空布局 ViewHolder
+    inner class EmptyViewHolder(binding: ItemLogEmptyBinding) : RecyclerView.ViewHolder(binding.root)
+
+    private fun level2Color(tvLevel : TextView, level : String, isBackground: Boolean = true) {
         val baseColor = when (level) {
             LogLevel.VERBOSE.value -> 0xFFBBBBBB.toInt()
             LogLevel.DEBUG.value -> 0xFF33B5E5.toInt()
@@ -155,21 +183,17 @@ class LogAdapter(val context : Context, val outPutterIndex : Int) : ListAdapter<
             LogLevel.ERROR.value -> 0xFFFF4444.toInt()
             else -> 0xFFBBBBBB.toInt()
         }
-        tvLevel.setTextColor(baseColor) // 2. 计算 60% 透明度的颜色
-        // 0.6f 转换为 16进制 Alpha 通道大约是 0x99 (255 * 0.6 ≈ 153)
-       if(isBackground){
-           val colorWithAlpha = ColorUtils.setAlphaComponent(baseColor, (255 * 0.3f).toInt())
-           val borderColor = ColorUtils.setAlphaComponent(baseColor, (255 * 0.6f).toInt()) // 3. 创建 GradientDrawable (对应 Shape)
-           val drawable = GradientDrawable()
-           drawable.shape = GradientDrawable.RECTANGLE // 对应 <shape>
-           drawable.cornerRadius = 50f.dp2px() // 对应 android:radius="4dp"
-           drawable.setColor(colorWithAlpha) // 设置填充色
-           drawable.setStroke(1.dp2px(), borderColor)
-
-           // 4. 设置给 View
-           // 注意：这里假设你的 View 是 tvLevel，如果不是请替换
-           tvLevel.background = drawable
-       }
+        tvLevel.setTextColor(baseColor)
+        if(isBackground){
+            val colorWithAlpha = ColorUtils.setAlphaComponent(baseColor, (255 * 0.3f).toInt())
+            val borderColor = ColorUtils.setAlphaComponent(baseColor, (255 * 0.6f).toInt())
+            val drawable = GradientDrawable()
+            drawable.shape = GradientDrawable.RECTANGLE
+            drawable.cornerRadius = 50f.dp
+            drawable.setColor(colorWithAlpha)
+            drawable.setStroke(1.dp, borderColor)
+            tvLevel.background = drawable
+        }
     }
 
     private object LogDiffCallback : DiffUtil.ItemCallback<Map<String, Any>>() {
@@ -179,15 +203,10 @@ class LogAdapter(val context : Context, val outPutterIndex : Int) : ListAdapter<
             return oldId != null && oldId == newId
         }
 
-        override fun areContentsTheSame(oldItem : Map<String, Any>, newItem : Map<String, Any>) : Boolean { // 1. 先比较大小
+        override fun areContentsTheSame(oldItem : Map<String, Any>, newItem : Map<String, Any>) : Boolean {
             if (oldItem.size != newItem.size) return false
-
-            // 2. 遍历比较每个键值对
             for ((key, value) in oldItem) {
-                val otherValue = newItem[key] // 注意：这里假设 value 和 otherValue 能够正确处理 equals
-                if (value != otherValue) {
-                    return false
-                }
+                if (value != newItem[key]) return false
             }
             return true
         }
@@ -196,5 +215,6 @@ class LogAdapter(val context : Context, val outPutterIndex : Int) : ListAdapter<
     companion object {
         private const val TYPE_FULL = 0
         private const val TYPE_SIMPLIFIED = 1
+        private const val TYPE_EMPTY = 2
     }
 }

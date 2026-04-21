@@ -1,8 +1,10 @@
 package com.hearthappy.log.preview
 
+import android.graphics.Color
 import android.os.Bundle
 import android.os.SystemClock
 import android.transition.Slide
+import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.PopupWindow
 import android.widget.Toast
@@ -25,14 +27,14 @@ import com.hearthappy.log.LoggerX
 import com.hearthappy.log.core.LogScopeProxy
 import com.hearthappy.log.image.LogImageLoaderFactory
 import com.hearthappy.logs.R
-import com.hearthappy.logs.databinding.FragmentPreviewBinding
-import com.hearthappy.logs.databinding.PopHintBinding
+import com.hearthappy.logs.databinding.FragmentLoggerxPreviewBinding
+import com.hearthappy.logs.databinding.PopLoggerxHintBinding
 import com.hearthappy.logs.databinding.PopMultiFilterBinding
 import com.hearthappy.logs.databinding.PopOperationChoiceBinding
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-class PreviewLogFragment: AbsBaseFragment<FragmentPreviewBinding>() {
+class PreviewLogFragment: AbsBaseFragment<FragmentLoggerxPreviewBinding>() {
 
     private val outPutterIndex: Int by lazy { arguments?.getInt("index") ?: 0 }
     private val scopeProxy: LogScopeProxy by lazy { LoggerX.getOutputters()[outPutterIndex].scope.getProxy() }
@@ -43,14 +45,18 @@ class PreviewLogFragment: AbsBaseFragment<FragmentPreviewBinding>() {
     private var isConfirmed = false
     private val streamlineStateViewModel by activityViewModels<PreviewOperateViewModel>()
 
+    override fun initViewBinding(inflater: LayoutInflater, container: ViewGroup?): FragmentLoggerxPreviewBinding? {
+        return FragmentLoggerxPreviewBinding.inflate(inflater, container, false)
+    }
+
     private val viewModel: PreviewViewModel by viewModels {
         PreviewViewModel.Factory(scopeProxy)
     }
 
-    override fun FragmentPreviewBinding.initData() {
+    override fun FragmentLoggerxPreviewBinding.initData() {
     }
 
-    override fun FragmentPreviewBinding.initListener() {
+    override fun FragmentLoggerxPreviewBinding.initListener() {
         swipeRefreshLayout.setOnRefreshListener {
             viewModel.refreshAppliedLogs()
         }
@@ -66,27 +72,26 @@ class PreviewLogFragment: AbsBaseFragment<FragmentPreviewBinding>() {
         }
     }
 
-    override fun FragmentPreviewBinding.initView(savedInstanceState: Bundle?) {
-        viewBinding.apply {
-            val context = context ?: return
-            logAdapter = LogAdapter(context, outPutterIndex)
-            rvLogList.layoutManager = LinearLayoutManager(requireContext())
-            rvLogList.adapter = logAdapter
-            rvLogList.setHasFixedSize(true)
-            rvLogList.addOnScrollListener(object: RecyclerView.OnScrollListener() {
-                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-                    if (newState == RecyclerView.SCROLL_STATE_DRAGGING || newState == RecyclerView.SCROLL_STATE_SETTLING) {
-                        LogImageLoaderFactory.pauseDecode()
-                    } else {
-                        LogImageLoaderFactory.resumeDecode()
-                    }
+    override fun FragmentLoggerxPreviewBinding.initView(savedInstanceState: Bundle?) {
+        btnDelete.setColorFilter(Color.WHITE)
+        val context = context ?: return
+        logAdapter = LogAdapter(context, outPutterIndex)
+        rvLogList.layoutManager = LinearLayoutManager(requireContext())
+        rvLogList.adapter = logAdapter
+        rvLogList.setHasFixedSize(true)
+        rvLogList.addOnScrollListener(object: RecyclerView.OnScrollListener() {
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                if (newState == RecyclerView.SCROLL_STATE_DRAGGING || newState == RecyclerView.SCROLL_STATE_SETTLING) {
+                    LogImageLoaderFactory.pauseDecode()
+                } else {
+                    LogImageLoaderFactory.resumeDecode()
                 }
-            })
-            viewModel.loadInitialLogs()
-        }
+            }
+        })
+        viewModel.loadInitialLogs()
     }
 
-    override fun FragmentPreviewBinding.initViewModelListener() {
+    override fun FragmentLoggerxPreviewBinding.initViewModelListener() {
         lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
@@ -164,7 +169,7 @@ class PreviewLogFragment: AbsBaseFragment<FragmentPreviewBinding>() {
     }
 
     private fun showSingleDeleteConfirmation() {
-        val popHintBinding = PopHintBinding.inflate(layoutInflater)
+        val popHintBinding = PopLoggerxHintBinding.inflate(layoutInflater)
         popupWindow(popHintBinding, width = 290.dp, height = 160.dp, viewEventListener = { vb ->
             vb.apply {
                 tvContent.text = getString(R.string.confirm_deletion)

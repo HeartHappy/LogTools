@@ -11,7 +11,7 @@ import com.hearthappy.log.core.LogScopeProxy
 import com.hearthappy.log.core.OutputConfig
 import com.hearthappy.log.db.LogDbManager
 import com.hearthappy.log.interceptor.LogInterceptor
-
+import java.io.File
 
 /**
  * Created Date: 2023/9/20
@@ -101,6 +101,24 @@ class LoggerX {
             onProgress: ((Int) -> Unit)? = null
         ) {
             LogExportManager.exportAll(exportAll, limit, format, onProgress)
+        }
+
+        /**
+         * 导出所有作用域的日志文件，并通过回调接收文件列表
+         * @param exportAll 是否导出所有记录（true：不限制数量，false：按 limit 导出）
+         * @param limit 每个作用域导出的条数限制（仅在 exportAll 为 false 时生效）
+         * @param format 导出格式（CSV/TXT）
+         * @param onProgress 总体导出进度回调 (0..100)
+         * @param onFilesReady 文件列表就绪回调，接收导出的所有文件列表
+         */
+        fun exportAllFiles(
+            exportAll: Boolean = true,
+            limit: Int = 1000,
+            format: LogExportManager.ExportFormat = LogExportManager.ExportFormat.CSV,
+            onProgress: ((Int) -> Unit)? = null,
+            onFilesReady: ((List<File>) -> Unit)? = null
+        ) {
+            LogExportManager.exportAllFiles(exportAll, limit, format, onProgress, onFilesReady)
         }
 
         fun getDbFileSize(): Double {

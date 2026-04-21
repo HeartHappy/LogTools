@@ -32,24 +32,24 @@
         android:paddingHorizontal="10dp"
         android:layout_marginBottom="12dp"
         android:layout_marginEnd="12dp"
-        android:background="@drawable/bg_filter_chip_normal"
+        android:background="@drawable/bg_log_filter_chip_normal"
         android:layout_height="wrap_content">
         <ImageButton
             android:id="@+id/btnShared"
-            android:src="@drawable/ic_shared"
+            android:src="@drawable/ic_log_shared"
             app:layout_constraintEnd_toStartOf="@+id/btnDelete"
             app:layout_constraintBottom_toBottomOf="parent"
             style="@style/style_icon" />
         <ImageButton
             android:id="@+id/btnDelete"
             style="@style/style_icon"
-            android:src="@drawable/ic_delete"
+            android:src="@drawable/ic_log_delete"
             app:layout_constraintEnd_toStartOf="@+id/btnFilter"
             app:layout_constraintBottom_toBottomOf="parent" />
         <ImageButton
             android:id="@+id/btnFilter"
             style="@style/style_icon"
-            android:src="@drawable/ic_filter"
+            android:src="@drawable/ic_log_filter"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toBottomOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>

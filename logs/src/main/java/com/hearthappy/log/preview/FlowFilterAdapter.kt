@@ -82,10 +82,10 @@ class FlowFilterAdapter(
 
             // 根据选中状态和特殊标记设置背景
             val backgroundRes = when {
-                item.isSpecial && selected -> R.drawable.bg_filter_chip_critical_selected
-                item.isSpecial -> R.drawable.bg_filter_chip_critical_normal
-                selected -> R.drawable.bg_filter_chip_selected
-                else -> R.drawable.bg_filter_chip_normal
+                item.isSpecial && selected -> R.drawable.bg_log_filter_chip_critical_selected
+                item.isSpecial -> R.drawable.bg_log_filter_chip_critical_normal
+                selected -> R.drawable.bg_log_filter_chip_selected
+                else -> R.drawable.bg_log_filter_chip_normal
             }
             tvChip.setBackgroundResource(backgroundRes)
 

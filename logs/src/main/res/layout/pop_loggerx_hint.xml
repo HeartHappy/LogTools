@@ -6,7 +6,7 @@
     android:layout_gravity="center"
     android:layout_marginStart="16dp"
     android:layout_marginEnd="16dp"
-    android:background="@drawable/bg_dialog_card"
+    android:background="@drawable/bg_log_dialog_card"
     android:padding="16dp"> <!-- 使用圆角背景 -->
 
     <!-- 标题 -->
@@ -46,7 +46,7 @@
         android:layout_height="36dp"
         android:layout_marginTop="12dp"
         android:layout_marginEnd="8dp"
-        android:background="@drawable/bg_btn_outline"
+        android:background="@drawable/bg_log_btn_outline"
         android:gravity="center"
         android:text="@string/cancel"
         android:textColor="@color/filter_text_selected"
@@ -62,7 +62,7 @@
         android:layout_height="36dp"
         android:layout_marginStart="8dp"
         android:layout_marginTop="12dp"
-        android:background="@drawable/bg_btn_filled"
+        android:background="@drawable/bg_log_btn_filled"
         android:gravity="center"
         android:text="@string/filter_confirm"
         android:textColor="@color/color_base_white"

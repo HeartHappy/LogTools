@@ -18,12 +18,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LogTool"
         tools:targetApi="31" >
-        <activity
-            android:name="com.hearthappy.log.preview.PreviewLargeImageActivity"
-            android:exported="false" />
-        <activity
-            android:name="com.hearthappy.log.preview.PreviewLogActivity"
-            android:exported="false" />
+
         <!--
          <meta-data
              android:name="ScopedStorage"
@@ -39,15 +34,6 @@
             </intent-filter>
         </activity>
 
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="com.hearthappy.loggerx.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true" >
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
     </application>
 
 </manifest>

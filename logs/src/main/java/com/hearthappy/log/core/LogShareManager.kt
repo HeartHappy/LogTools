@@ -7,8 +7,8 @@ import java.io.File
 
 object LogShareManager {
     fun shareLogFile(context: Context, file: File, mimeType: String = "text/csv") {
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-
+//        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileProvider", file)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.loggerx.fileprovider", file)
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = mimeType
             putExtra(Intent.EXTRA_STREAM, uri)
@@ -31,7 +31,8 @@ object LogShareManager {
         }
 
         val uris = files.map {
-            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it)
+            FileProvider.getUriForFile(context, "${context.packageName}.loggerx.fileprovider", it)
+//            FileProvider.getUriForFile(context, "${context.packageName}.fileProvider", it)
         }
 
         val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {

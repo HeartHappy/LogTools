@@ -11,7 +11,7 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import com.google.android.flexbox.FlexboxLayoutManager
 import com.google.android.flexbox.JustifyContent
-import com.hearthappy.logs.databinding.FragmentFilterPageBinding
+import com.hearthappy.logs.databinding.FragmentLoggerxFilterPageBinding
 
 /**
  * 单个过滤分类页面
@@ -25,7 +25,7 @@ import com.hearthappy.logs.databinding.FragmentFilterPageBinding
  */
 class FilterPageFragment : Fragment() {
 
-    private var _binding : FragmentFilterPageBinding? = null
+    private var _binding : FragmentLoggerxFilterPageBinding? = null
     private val binding get() = _binding!!
 
     private lateinit var category : FilterCategory
@@ -36,7 +36,7 @@ class FilterPageFragment : Fragment() {
     private var onChipClick : ((FilterCategory, String?) -> Unit)? = null
 
     override fun onCreateView(inflater : LayoutInflater, container : ViewGroup?, savedInstanceState : Bundle?) : View {
-        _binding = FragmentFilterPageBinding.inflate(inflater, container, false)
+        _binding = FragmentLoggerxFilterPageBinding.inflate(inflater, container, false)
         return binding.root
     }
 

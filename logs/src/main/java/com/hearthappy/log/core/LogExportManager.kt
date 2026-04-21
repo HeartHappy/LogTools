@@ -205,7 +205,7 @@ object LogExportManager {
 
     private fun createExportFile(context: Context, scopeTag: String, format: ExportFormat): File {
         val safeScope = scopeTag.replace(Regex("[^a-zA-Z0-9_-]"), "_")
-        val fileName = "${safeScope}_${System.currentTimeMillis()}.${format.extension}"
+        val fileName = "${safeScope}-Log.${format.extension}"
         val exportDir = runCatching { FileLogStorageManager.resolveExportDir() }.getOrElse { context.cacheDir }
         return File(exportDir, fileName)
     }

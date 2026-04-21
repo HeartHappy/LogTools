@@ -156,7 +156,7 @@ class PreviewLogFragment: AbsBaseFragment<FragmentLoggerxPreviewBinding>() {
 
                 tvConfirm.setOnClickListener {
                     if (rbOptionAll.isChecked) {
-                        LoggerX.getOutputters()[outPutterIndex].scope.doExportAndShare()
+                        LoggerX.exportAndShareAll()
                     } else { // 分享单个日志的实现
                         LoggerX.getOutputters()[outPutterIndex].scope.doExportAndShare()
                     }

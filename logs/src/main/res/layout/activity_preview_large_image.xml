@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="#CC000000"
     android:orientation="vertical"
-    tools:context="com.hearthappy.log.preview.PreviewLargeImageActivity">
+    tools:context="com.hearthappy.loggerx.preview.PreviewLargeImageActivity">
 
     <TextView
         android:id="@+id/tvTitle"
@@ -60,7 +60,7 @@
             android:paddingEnd="8dp"
             android:scaleType="centerInside"
             android:src="@drawable/ic_zoom_out_24"
-            android:tint="?attr/colorOnSurface" />
+            app:tint="?attr/colorOnSurface" />
 
         <ImageButton
             android:id="@+id/btnZoomIn"
@@ -73,7 +73,7 @@
             android:paddingEnd="8dp"
             android:scaleType="centerInside"
             android:src="@drawable/ic_zoom_in_24"
-            android:tint="?attr/colorOnSurface" />
+            app:tint="?attr/colorOnSurface" />
 
         <ImageButton
             android:id="@+id/btnRotate"
@@ -86,7 +86,7 @@
             android:paddingEnd="8dp"
             android:scaleType="centerInside"
             android:src="@drawable/ic_rotate_right_24"
-            android:tint="?attr/colorOnSurface" />
+            app:tint="?attr/colorOnSurface" />
     </LinearLayout>
 
     <LinearLayout
@@ -108,7 +108,7 @@
             android:paddingEnd="8dp"
             android:scaleType="centerInside"
             android:src="@drawable/ic_log_download_24"
-            android:tint="?attr/colorOnSurface" />
+            app:tint="?attr/colorOnSurface" />
 
         <ImageButton
             android:id="@+id/btnClose"
@@ -121,6 +121,6 @@
             android:paddingEnd="8dp"
             android:scaleType="centerInside"
             android:src="@drawable/ic_log_close_24"
-            android:tint="?attr/colorOnSurface" />
+            app:tint="?attr/colorOnSurface" />
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

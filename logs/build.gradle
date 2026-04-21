@@ -2,38 +2,76 @@ plugins {
     id 'com.android.library'
     id 'org.jetbrains.kotlin.android'
     id 'maven-publish'
+    id 'signing'
 }
+
+
 group("com.hearthappy")
-version("1.0.6")
+version(loggerxVersion)
 
 
-task javadoc(type: Javadoc) {
+tasks.register('javadoc', Javadoc) {
     source = android.sourceSets.main.java.sourceFiles
     classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
 }
 
-task javadocJar(type: Jar, dependsOn: javadoc) {
+tasks.register('javadocJar', Jar) {
+    dependsOn javadoc
     archiveClassifier.set("javadoc")
     from javadoc.destinationDir
 }
 
-
-task sourceJar(type: Jar) {
+tasks.register('sourceJar', Jar) {
     from android.sourceSets.main.java.srcDirs
     archiveClassifier.set("sources")
 }
-
+// 定义一个任务，用于将本地目录压缩成 ZIP 文件
+tasks.register('zipRepo', Zip) {
+    from "$buildDir/repo"
+    archiveFileName = 'io.zip'
+    destinationDirectory = file(buildDir)
+}
 afterEvaluate {
     publishing {
         publications {
             release(MavenPublication) {
-                from components.release
-                groupId = 'com.github.hearthappy'
+                groupId = 'io.github.hearthappy'
                 artifactId = 'loggerx'
-                version = '1.1.0'
+                version = loggerxVersion
+
+                //afterEvaluate：闭包后在按照类型打包发布
+
+                from components.release
+//                artifact("$buildDir/repo/io/github/hearthappy/android-basic-ktx/1.0.0/android-basic-ktx-1.0.0.aar")
                 artifacts {
-                    archives(javadocJar)
-                    archives(sourceJar)
+                    archives(tasks.named('javadocJar'))
+                    archives(tasks.named('sourceJar'))
+                }
+                pom {
+                    name = 'LoggerX'
+                    description = '日志框架初始化'
+                    url = 'https://github.com/HeartHappy/LoggerX'
+
+                    licenses {
+                        license {
+                            name = 'The Apache License, Version 2.0'
+                            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id = 'HeartHappy'
+                            name = 'এ᭄白ຼ龙້໌ᮨꦿ'
+                            email = '1096885636@qq.com'
+                        }
+                    }
+
+                    scm {
+                        connection = 'scm:git://github.com/HeartHappy/LoggerX'
+                        developerConnection = 'scm:git:ssh://github.com/HeartHappy/LoggerX'
+                        url = 'https://github.com/HeartHappy/LoggerX'
+                    }
                 }
             }
         }
@@ -49,7 +87,7 @@ afterEvaluate {
 
 
 android {
-    namespace 'com.hearthappy.logs'
+    namespace 'com.hearthappy.loggerx'
     compileSdk 31
 
     defaultConfig {
@@ -95,6 +133,4 @@ dependencies {
     api libs.androidx.swiperefreshlayout
     api(libs.android.basic.ktx)
     api libs.disklrucache
-    //加载libs目录的aar
-    implementation(fileTree(dir: 'libs', include: ['*.aar']))
 }

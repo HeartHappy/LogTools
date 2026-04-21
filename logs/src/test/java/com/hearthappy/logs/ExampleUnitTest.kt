@@ -1,6 +1,6 @@
-package com.hearthappy.logs
+package com.hearthappy.loggerx
 
-import com.hearthappy.log.image.DefaultLogImageLoader
+import com.hearthappy.loggerx.image.DefaultLogImageLoader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

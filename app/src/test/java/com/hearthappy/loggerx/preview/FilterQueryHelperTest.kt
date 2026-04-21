@@ -1,8 +1,6 @@
 package com.hearthappy.loggerx.preview
 
-import com.hearthappy.log.LoggerX
-import com.hearthappy.log.preview.FilterQueryHelper
-import com.hearthappy.log.preview.FilterState
+import com.hearthappy.loggerx.LoggerX
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -1,4 +1,4 @@
-package com.hearthappy.logs
+package com.hearthappy.loggerx
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -7,9 +7,8 @@ import android.database.sqlite.SQLiteDatabase
 import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.hearthappy.log.LoggerX
-import com.hearthappy.log.core.LogExportManager
-import com.hearthappy.log.db.LogDbManager
+import com.hearthappy.loggerx.core.LogExportManager
+import com.hearthappy.loggerx.db.LogDbManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -30,7 +29,7 @@ class LogDbManagerAndroidTest {
     fun setUp() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
         baseDir = File(context.filesDir, "loggerx-test").apply { mkdirs() }
-        LoggerX.init(context, com.hearthappy.log.core.OutputConfig(storageDirPath = baseDir.absolutePath))
+        LoggerX.init(context, com.hearthappy.loggerx.core.OutputConfig(storageDirPath = baseDir.absolutePath))
         LoggerX.clear()
     }
 
@@ -137,8 +136,8 @@ class LogDbManagerAndroidTest {
             db.execSQL("CREATE TABLE IF NOT EXISTS Error_log_img_chunk(id INTEGER PRIMARY KEY AUTOINCREMENT, chunk TEXT)")
             db.version = 6
         }
-        LoggerX.init(context, com.hearthappy.log.core.OutputConfig(storageDirPath = baseDir.absolutePath))
-        val helper = com.hearthappy.log.db.LogDbHelper(context)
+        LoggerX.init(context, com.hearthappy.loggerx.core.OutputConfig(storageDirPath = baseDir.absolutePath))
+        val helper = com.hearthappy.loggerx.db.LogDbHelper(context)
         helper.writableDatabase.use { db ->
             val legacyTables = mutableListOf<String>()
             db.rawQuery(

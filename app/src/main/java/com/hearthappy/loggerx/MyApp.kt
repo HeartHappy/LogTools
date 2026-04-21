@@ -2,8 +2,7 @@ package com.hearthappy.loggerx
 
 import android.app.Application
 import com.hearthappy.basic.tools.screenadaptation.ScreenAdaptHelper
-import com.hearthappy.log.LoggerX
-import com.hearthappy.log.interceptor.LogInterceptorAdapter
+import com.hearthappy.loggerx.interceptor.LogInterceptorAdapter
 
 class MyApp: Application() {
 

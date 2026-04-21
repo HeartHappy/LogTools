@@ -5,6 +5,7 @@ import android.util.Base64OutputStream
 import android.util.Log
 import com.hearthappy.log.LoggerX
 import com.hearthappy.log.db.LogDbManager
+import com.hearthappy.logs.BuildConfig
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -256,6 +257,7 @@ object LogExportManager {
     }
 
     private fun appendDataUriBody(writer: OutputStreamWriter, filePath: String?) {
+        if (filePath.isNullOrBlank()) return
         runCatching {
             val file = retry("read-file") { FileLogStorageManager.validateStoredFile(filePath) }
             val mimeType = FileLogStorageManager.detectMimeType(file)
@@ -294,7 +296,9 @@ object LogExportManager {
                 return block()
             } catch (throwable: Throwable) {
                 lastError = throwable
-                Log.w(LoggerX.TAG, "retry $name failed at attempt=${attempt + 1}: ${throwable.message}")
+                if(BuildConfig.DEBUG){
+                    Log.w(LoggerX.TAG, "retry $name failed at attempt=${attempt + 1}: ${throwable.message}")
+                }
             }
         }
         throw IOException("operation failed after retry: $name", lastError)

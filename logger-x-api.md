@@ -8,7 +8,7 @@ LoggerX 是一个极简且功能强大的 Android 日志框架，支持多作用
 
 ### 初始化示例
 ```kotlin
-LoggerX.init(context, OutputConfig(storageDirPath = context.getExternalFilesDir("logs")?.absolutePath ?: ""))
+ LoggerX.init(this)
 ```
 
 ## 3. 核心 API
@@ -94,6 +94,16 @@ LoggerX.init(context, OutputConfig(storageDirPath = context.getExternalFilesDir(
   | :--- | :--- | :--- | :--- | :--- |
   | `maxSizeMb` | `Double` | 是 | - | 数据库文件最大允许大小 (MB) |
   | `cleanSizeMb` | `Double` | 是 | - | 每次清理尝试减少的大小 (MB) |
+- **返回值**: `Unit`
+
+### 3.8 开启内存不足时清理（按大小）
+设置内存不足时自动清理数据库。
+- **方法名称**: `enableAutoCleanByLowMemory`
+- **功能描述**: 当内存不足时，触发自动清理任务。
+- **参数列表**:
+  | 参数名称 | 类型 | 是否必填 | 默认值 | 参数说明 |
+  | :--- | :--- | :--- | :--- | :--- |
+  | `minFreeSpaceMb` | `Double` | 是 | - | 当内存不足minFreeSpaceMb大小时，自动清理最早一天的数据 (MB) |
 - **返回值**: `Unit`
 
 ## 4. 使用示例

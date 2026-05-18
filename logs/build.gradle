@@ -49,7 +49,7 @@ afterEvaluate {
                 }
                 pom {
                     name = 'LoggerX'
-                    description = '日志框架初始化'
+                    description = '1、新增分页查询 \n2、上拉加载更多'
                     url = 'https://github.com/HeartHappy/LoggerX'
 
                     licenses {

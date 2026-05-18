@@ -1,7 +1,7 @@
 buildscript {
     ext {
         // 定义全局版本号
-        loggerxVersion = "1.0.0"
+        loggerxVersion = "1.0.1"
     }
 }
 plugins {

@@ -45,7 +45,9 @@
         app:tabMinWidth="0dp"
         app:tabPaddingStart="12dp"
         app:tabPaddingEnd="12dp"
+        app:tabTextColor="@color/color_base_white"
         app:tabTextAppearance="@style/MyTabTextStyle"
+        app:tabSelectedTextColor="@color/design_default_color_primary"
         app:layout_constraintTop_toBottomOf="@+id/ivLogBack"
         app:tabMode="scrollable" />
 
